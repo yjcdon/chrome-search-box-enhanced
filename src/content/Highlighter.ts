@@ -7,12 +7,17 @@ export class Highlighter {
   private currentIndex = 0;
   private totalMatches = 0; // 实际匹配总数（可能超过 MAX_HIGHLIGHTS）
   private readonly MAX_HIGHLIGHTS = 500; // 最大高亮数量，防止大页面卡顿
+  private lastMatchText: string = ''; // 记录当前匹配的文本内容，用于恢复位置
 
   /**
    * 高亮匹配范围
    * @param ranges 匹配范围数组
    */
   highlight(ranges: Range[]): void {
+    // 记录当前匹配的文本内容（在清除前）
+    const currentHighlight = this.highlights[this.currentIndex];
+    const preserveText = currentHighlight ? currentHighlight.textContent || '' : '';
+
     // 先清除旧高亮
     this.clear();
 
@@ -50,10 +55,20 @@ export class Highlighter {
     // 按文档位置重新排序
     this.sortHighlightsByDocumentPosition();
 
-    // 设置第一个为当前项
-    if (this.highlights.length > 0) {
-      this.setCurrent(0);
+    // 尝试恢复之前的位置（找到相同文本内容的匹配）
+    let newIndex = 0;
+    if (preserveText) {
+      // 查找相同文本内容的匹配项
+      for (let i = 0; i < this.highlights.length; i++) {
+        if (this.highlights[i].textContent === preserveText) {
+          newIndex = i;
+          break;
+        }
+      }
     }
+
+    // 设置当前项
+    this.setCurrent(newIndex);
   }
 
   /**
