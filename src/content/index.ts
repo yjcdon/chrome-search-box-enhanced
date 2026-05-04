@@ -4,6 +4,12 @@ import { Highlighter } from './Highlighter.js';
 import { Navigator } from './Navigator.js';
 import type { SearchOptions } from '../types/index.js';
 
+// 当前搜索状态
+let currentQuery = '';
+let currentOptions: SearchOptions = { caseSensitive: false, wholeWord: false, regex: false };
+let searchObserver: MutationObserver | null = null;
+let observerDebounceTimer: number | null = null;
+
 /**
  * 判断是否是查找快捷键 (Cmd+F / Ctrl+F)
  */
@@ -39,6 +45,54 @@ function installShortcutInterceptor(searchBox: SearchBox): void {
 }
 
 /**
+ * 设置动态内容监听
+ */
+function setupDynamicContentObserver(
+  searchBox: SearchBox,
+  searchEngine: SearchEngine,
+  highlighter: Highlighter
+): void {
+  // 创建 MutationObserver 监听 DOM 变化
+  searchObserver = new MutationObserver((mutations) => {
+    // 忽略高亮元素自身的变化
+    const isHighlightChange = mutations.some(m =>
+      m.target instanceof HTMLElement &&
+      (m.target.classList.contains('vs-search-highlight') ||
+       m.target.classList.contains('vs-search-current') ||
+       m.target.closest('.vs-search-box'))
+    );
+
+    if (isHighlightChange || !currentQuery.trim()) {
+      return;
+    }
+
+    // 防抖重新搜索
+    if (observerDebounceTimer !== null) {
+      window.clearTimeout(observerDebounceTimer);
+    }
+
+    observerDebounceTimer = window.setTimeout(() => {
+      // 重新搜索
+      const ranges = searchEngine.search(currentQuery, currentOptions);
+      highlighter.highlight(ranges);
+
+      const total = highlighter.getCount();
+      const currentIndex = total > 0 ? highlighter.getCurrentIndex() : 0;
+      searchBox.updateResult({ total, currentIndex });
+
+      observerDebounceTimer = null;
+    }, 200);
+  });
+
+  // 开始监听
+  searchObserver.observe(document.body, {
+    childList: true,
+    subtree: true,
+    characterData: true
+  });
+}
+
+/**
  * 主入口
  */
 function main(): void {
@@ -48,8 +102,15 @@ function main(): void {
   const navigator = new Navigator(highlighter);
   const searchBox = new SearchBox();
 
+  // 设置动态内容监听
+  setupDynamicContentObserver(searchBox, searchEngine, highlighter);
+
   // 配置搜索框回调
   searchBox.setOnSearch((query: string, options: SearchOptions) => {
+    // 保存当前搜索状态
+    currentQuery = query;
+    currentOptions = options;
+
     // 清除旧高亮
     highlighter.clear();
 
@@ -87,6 +148,8 @@ function main(): void {
   });
 
   searchBox.setOnClose(() => {
+    // 清空搜索状态
+    currentQuery = '';
     highlighter.clear();
   });
 

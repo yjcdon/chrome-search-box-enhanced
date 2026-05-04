@@ -9,6 +9,8 @@ export class SearchBox {
   private resultLabel: HTMLElement | null = null;
   private optionButtons: Map<string, HTMLButtonElement> = new Map();
   private isOpenState = false;
+  private debounceTimer: number | null = null;
+  private readonly DEBOUNCE_DELAY = 150; // 防抖延迟 150ms
 
   private options: SearchOptions = {
     caseSensitive: false,
@@ -112,12 +114,21 @@ export class SearchBox {
   }
 
   /**
-   * 处理输入事件
+   * 处理输入事件（带防抖）
    */
   private handleInput(): void {
-    if (this.onSearch && this.input) {
-      this.onSearch(this.input.value, this.options);
+    // 清除之前的定时器
+    if (this.debounceTimer !== null) {
+      window.clearTimeout(this.debounceTimer);
     }
+
+    // 设置新的定时器
+    this.debounceTimer = window.setTimeout(() => {
+      if (this.onSearch && this.input) {
+        this.onSearch(this.input.value, this.options);
+      }
+      this.debounceTimer = null;
+    }, this.DEBOUNCE_DELAY);
   }
 
   /**
@@ -275,6 +286,12 @@ export class SearchBox {
    * 销毁组件
    */
   destroy(): void {
+    // 清除防抖定时器
+    if (this.debounceTimer !== null) {
+      window.clearTimeout(this.debounceTimer);
+      this.debounceTimer = null;
+    }
+
     if (this.container && this.container.parentNode) {
       this.container.parentNode.removeChild(this.container);
     }

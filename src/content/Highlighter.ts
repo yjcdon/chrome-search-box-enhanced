@@ -5,6 +5,8 @@
 export class Highlighter {
   private highlights: HTMLElement[] = [];
   private currentIndex = 0;
+  private totalMatches = 0; // 实际匹配总数（可能超过 MAX_HIGHLIGHTS）
+  private readonly MAX_HIGHLIGHTS = 500; // 最大高亮数量，防止大页面卡顿
 
   /**
    * 高亮匹配范围
@@ -18,15 +20,21 @@ export class Highlighter {
       return;
     }
 
+    // 记录实际匹配总数
+    this.totalMatches = ranges.length;
+
+    // 限制高亮数量，防止大页面卡顿
+    const limitedRanges = ranges.slice(0, this.MAX_HIGHLIGHTS);
+
     // 从后往前处理，避免 DOM 变化影响后续 range
-    const sortedRanges = [...ranges].sort((a, b) => {
+    const sortedRanges = [...limitedRanges].sort((a, b) => {
       return b.compareBoundaryPoints(Range.START_TO_START, a);
     });
 
     sortedRanges.forEach((range, index) => {
       const mark = document.createElement('mark');
       mark.className = 'vs-search-highlight';
-      mark.dataset.index = String(ranges.length - 1 - index); // 反向索引
+      mark.dataset.index = String(limitedRanges.length - 1 - index); // 反向索引
 
       try {
         // 尝试直接包裹（range 在同一个文本节点内）
@@ -105,10 +113,10 @@ export class Highlighter {
   }
 
   /**
-   * 获取高亮元素数量
+   * 获取高亮元素数量（实际匹配总数）
    */
   getCount(): number {
-    return this.highlights.length;
+    return this.totalMatches;
   }
 
   /**
@@ -147,6 +155,7 @@ export class Highlighter {
 
     this.highlights = [];
     this.currentIndex = 0;
+    this.totalMatches = 0;
   }
 
   /**
