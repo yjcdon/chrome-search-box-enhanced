@@ -61,17 +61,49 @@ function setupDynamicContentObserver(
   searchEngine: SearchEngine,
   highlighter: Highlighter
 ): void {
+  // 搜索过程中暂停 observer 的标志
+  let isSearching = false;
+
   // 创建 MutationObserver 监听 DOM 变化
   searchObserver = new MutationObserver((mutations) => {
-    // 忽略高亮元素自身的变化
-    const isHighlightChange = mutations.some(m =>
-      m.target instanceof HTMLElement &&
-      (m.target.classList.contains('vs-search-highlight') ||
-       m.target.classList.contains('vs-search-current') ||
-       m.target.closest('.vs-search-box'))
-    );
+    // 如果正在搜索过程中，忽略所有变化
+    if (isSearching) {
+      return;
+    }
 
-    if (isHighlightChange || !currentQuery.trim()) {
+    // 忽略高亮元素相关的变化
+    const isHighlightRelated = mutations.some(m => {
+      const target = m.target;
+
+      // 检查目标元素本身
+      if (target instanceof HTMLElement) {
+        // 高亮元素的变化
+        if (target.classList.contains('vs-search-highlight') ||
+            target.classList.contains('vs-search-current')) {
+          return true;
+        }
+        // 搜索框的变化
+        if (target.closest('.vs-search-box')) {
+          return true;
+        }
+        // 新添加的高亮元素
+        if (m.type === 'childList') {
+          const addedNodes = Array.from(m.addedNodes);
+          const hasHighlight = addedNodes.some(node =>
+            node instanceof HTMLElement &&
+            (node.classList.contains('vs-search-highlight') ||
+             node.classList.contains('vs-search-current'))
+          );
+          if (hasHighlight) {
+            return true;
+          }
+        }
+      }
+
+      return false;
+    });
+
+    if (isHighlightRelated || !currentQuery.trim()) {
       return;
     }
 
@@ -81,6 +113,9 @@ function setupDynamicContentObserver(
     }
 
     observerDebounceTimer = window.setTimeout(() => {
+      // 标记正在搜索，暂停 observer
+      isSearching = true;
+
       // 重新搜索
       const ranges = searchEngine.search(currentQuery, currentOptions);
       highlighter.highlight(ranges);
@@ -91,6 +126,12 @@ function setupDynamicContentObserver(
       searchBox.updateResult({ total, currentIndex, totalMatches });
 
       observerDebounceTimer = null;
+
+      // 搜索完成，恢复 observer
+      // 延迟恢复，确保 DOM 操作完成
+      setTimeout(() => {
+        isSearching = false;
+      }, 50);
     }, 200);
   });
 
@@ -98,9 +139,7 @@ function setupDynamicContentObserver(
   searchObserver.observe(document.body, {
     childList: true,
     subtree: true,
-    characterData: true,
-    attributes: true,
-    attributeFilter: ['style', 'class', 'hidden', 'display']
+    characterData: true
   });
 }
 
