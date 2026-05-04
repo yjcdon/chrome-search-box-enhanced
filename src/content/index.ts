@@ -112,9 +112,12 @@ function setupDynamicContentObserver(
     }
 
     observerDebounceTimer = window.setTimeout(() => {
-      performSearch(searchBox, searchEngine, highlighter);
+      // 只有在有实际变化时才重新搜索
+      if (currentQuery.trim()) {
+        performSearch(searchBox, searchEngine, highlighter);
+      }
       observerDebounceTimer = null;
-    }, 300);
+    }, 500);  // 增加防抖时间到 500ms
   });
 
   // 开始监听
@@ -141,10 +144,7 @@ function performSearch(
     searchObserver.disconnect();
   }
 
-  // 清除旧高亮
-  highlighter.clear();
-
-  // 执行搜索
+  // 执行搜索（highlight 内部会处理清除和位置恢复）
   const ranges = searchEngine.search(currentQuery, currentOptions);
   highlighter.highlight(ranges);
 
@@ -153,7 +153,7 @@ function performSearch(
   const currentIndex = total > 0 ? highlighter.getCurrentIndex() : 0;
   searchBox.updateResult({ total, currentIndex, totalMatches });
 
-  // 滚动到第一个匹配
+  // 滚动到当前匹配
   if (total > 0) {
     highlighter.scrollToCurrent();
   }
@@ -212,6 +212,11 @@ function main(): void {
     // 标记正在导航，暂停 observer
     isNavigating = true;
 
+    // 先暂停 observer
+    if (searchObserver) {
+      searchObserver.disconnect();
+    }
+
     const success = direction === 'next' ? navigator.next() : navigator.prev();
 
     if (success) {
@@ -224,7 +229,14 @@ function main(): void {
     // 导航完成，延迟恢复 observer
     setTimeout(() => {
       isNavigating = false;
-    }, 200);
+      if (searchObserver) {
+        searchObserver.observe(document.body, {
+          childList: true,
+          subtree: true,
+          characterData: true
+        });
+      }
+    }, 500);
   });
 
   searchBox.setOnClose(() => {

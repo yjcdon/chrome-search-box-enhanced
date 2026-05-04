@@ -7,16 +7,15 @@ export class Highlighter {
   private currentIndex = 0;
   private totalMatches = 0; // 实际匹配总数（可能超过 MAX_HIGHLIGHTS）
   private readonly MAX_HIGHLIGHTS = 500; // 最大高亮数量，防止大页面卡顿
-  private lastMatchText: string = ''; // 记录当前匹配的文本内容，用于恢复位置
+  private preservedIndex = 0; // 记录当前索引，用于恢复位置
 
   /**
    * 高亮匹配范围
    * @param ranges 匹配范围数组
    */
   highlight(ranges: Range[]): void {
-    // 记录当前匹配的文本内容（在清除前）
-    const currentHighlight = this.highlights[this.currentIndex];
-    const preserveText = currentHighlight ? currentHighlight.textContent || '' : '';
+    // 记录当前索引（在清除前）
+    const preserveIndex = this.currentIndex;
 
     // 先清除旧高亮
     this.clear();
@@ -55,16 +54,14 @@ export class Highlighter {
     // 按文档位置重新排序
     this.sortHighlightsByDocumentPosition();
 
-    // 尝试恢复之前的位置（找到相同文本内容的匹配）
+    // 尝试恢复之前的索引（保持在相近的位置）
     let newIndex = 0;
-    if (preserveText) {
-      // 查找相同文本内容的匹配项
-      for (let i = 0; i < this.highlights.length; i++) {
-        if (this.highlights[i].textContent === preserveText) {
-          newIndex = i;
-          break;
-        }
-      }
+    if (preserveIndex > 0 && preserveIndex < this.highlights.length) {
+      // 如果之前的索引在有效范围内，保持它
+      newIndex = preserveIndex;
+    } else if (preserveIndex >= this.highlights.length && this.highlights.length > 0) {
+      // 如果之前的索引超出范围（高亮数量减少了），保持在最后一个
+      newIndex = this.highlights.length - 1;
     }
 
     // 设置当前项
