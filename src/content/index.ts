@@ -14,6 +14,61 @@ let observerDebounceTimer: number | null = null;
 let isSearching = false; // 搜索过程中暂停 observer
 let isNavigating = false; // 导航过程中暂停 observer
 
+function clearObserverDebounceTimer(): void {
+  if (observerDebounceTimer !== null) {
+    window.clearTimeout(observerDebounceTimer);
+    observerDebounceTimer = null;
+  }
+}
+
+function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function textMatchesCurrentQuery(text: string | null): boolean {
+  const query = currentQuery.trim();
+  if (!query || !text) {
+    return false;
+  }
+
+  try {
+    if (currentOptions.regex || currentOptions.wholeWord) {
+      const source = currentOptions.regex ? query : escapeRegExp(query);
+      const pattern = currentOptions.wholeWord ? `\\b${source}\\b` : source;
+      const flags = currentOptions.caseSensitive ? '' : 'i';
+      return new RegExp(pattern, flags).test(text);
+    }
+
+    if (currentOptions.caseSensitive) {
+      return text.includes(query);
+    }
+
+    return text.toLowerCase().includes(query.toLowerCase());
+  } catch {
+    return false;
+  }
+}
+
+function nodeTextMatchesCurrentQuery(node: Node): boolean {
+  return textMatchesCurrentQuery(node.textContent);
+}
+
+function mutationsMayAffectCurrentSearch(mutations: MutationRecord[]): boolean {
+  return mutations.some((mutation) => {
+    if (mutation.type === 'characterData') {
+      return textMatchesCurrentQuery(mutation.target.textContent) ||
+        textMatchesCurrentQuery(mutation.oldValue);
+    }
+
+    if (mutation.type !== 'childList') {
+      return false;
+    }
+
+    const changedNodes = [...Array.from(mutation.addedNodes), ...Array.from(mutation.removedNodes)];
+    return changedNodes.some(nodeTextMatchesCurrentQuery);
+  });
+}
+
 /**
  * 判断当前窗口是否是主 frame
  */
@@ -85,13 +140,14 @@ function setupDynamicContentObserver(
         if (target.closest('.vs-search-box')) {
           return true;
         }
-        // 新添加的高亮元素
+        // 新添加/移除的高亮元素
         if (m.type === 'childList') {
-          const addedNodes = Array.from(m.addedNodes);
-          const hasHighlight = addedNodes.some(node =>
+          const changedNodes = [...Array.from(m.addedNodes), ...Array.from(m.removedNodes)];
+          const hasHighlight = changedNodes.some(node =>
             node instanceof HTMLElement &&
             (node.classList.contains('vs-search-highlight') ||
-             node.classList.contains('vs-search-current'))
+             node.classList.contains('vs-search-current') ||
+             !!node.querySelector('.vs-search-highlight, .vs-search-current'))
           );
           if (hasHighlight) {
             return true;
@@ -102,20 +158,17 @@ function setupDynamicContentObserver(
       return false;
     });
 
-    if (isHighlightRelated || !currentQuery.trim()) {
+    if (isHighlightRelated || !currentQuery.trim() || !mutationsMayAffectCurrentSearch(mutations)) {
       return;
     }
 
     // 防抖重新搜索
-    if (observerDebounceTimer !== null) {
-      window.clearTimeout(observerDebounceTimer);
-    }
+    clearObserverDebounceTimer();
 
     observerDebounceTimer = window.setTimeout(() => {
       // 只有在有实际变化时才重新搜索
       if (currentQuery.trim() && !isNavigating && !isSearching) {
-        console.log('Observer triggered performSearch');
-        performSearch(searchBox, searchEngine, highlighter);
+        performSearch(searchBox, searchEngine, highlighter, { preserveIndex: true });
       }
       observerDebounceTimer = null;
     }, 500);  // 增加防抖时间到 500ms
@@ -125,7 +178,8 @@ function setupDynamicContentObserver(
   searchObserver.observe(document.body, {
     childList: true,
     subtree: true,
-    characterData: true
+    characterData: true,
+    characterDataOldValue: true
   });
 }
 
@@ -135,19 +189,27 @@ function setupDynamicContentObserver(
 function performSearch(
   searchBox: SearchBox,
   searchEngine: SearchEngine,
-  highlighter: Highlighter
+  highlighter: Highlighter,
+  options: { preserveIndex?: boolean } = {}
 ): void {
   // 标记正在搜索
   isSearching = true;
+  clearObserverDebounceTimer();
 
   // 暂停 observer（断开连接）
   if (searchObserver) {
     searchObserver.disconnect();
+    searchObserver.takeRecords();
   }
+
+  // 先清除旧高亮，再基于干净 DOM 计算 Range。
+  // 如果先搜索再清除，Range 会指向即将被移除的 mark 内文本节点，动态页面上会出现闪烁和索引错位。
+  const preserveIndex = options.preserveIndex ? highlighter.getCurrentIndex() : 0;
+  highlighter.clear();
 
   // 执行搜索（highlight 内部会处理清除和位置恢复）
   const ranges = searchEngine.search(currentQuery, currentOptions);
-  highlighter.highlight(ranges);
+  highlighter.highlight(ranges, { preserveIndex });
 
   const total = highlighter.getCount();
   const totalMatches = highlighter.getTotalMatches();
@@ -163,10 +225,12 @@ function performSearch(
   setTimeout(() => {
     isSearching = false;
     if (searchObserver) {
+      searchObserver.takeRecords();
       searchObserver.observe(document.body, {
         childList: true,
         subtree: true,
-        characterData: true
+        characterData: true,
+        characterDataOldValue: true
       });
     }
   }, 100);
@@ -200,6 +264,7 @@ function main(): void {
     currentOptions = options;
 
     if (!query.trim()) {
+      clearObserverDebounceTimer();
       highlighter.clear();
       searchBox.updateResult({ total: 0, currentIndex: 0 });
       return;
@@ -212,15 +277,17 @@ function main(): void {
   searchBox.setOnNavigate((direction: 'next' | 'prev') => {
     // 标记正在导航，暂停 observer
     isNavigating = true;
+    clearObserverDebounceTimer();
 
     // 先暂停 observer
     if (searchObserver) {
       searchObserver.disconnect();
+      searchObserver.takeRecords();
     }
 
-    const success = direction === 'next' ? navigator.next() : navigator.prev();
+    const nextIndex = direction === 'next' ? navigator.next() : navigator.prev();
 
-    if (success) {
+    if (nextIndex !== -1) {
       // 更新结果显示
       const total = navigator.getTotal();
       const currentIndex = navigator.getCurrentIndex();
@@ -231,10 +298,12 @@ function main(): void {
     setTimeout(() => {
       isNavigating = false;
       if (searchObserver) {
+        searchObserver.takeRecords();
         searchObserver.observe(document.body, {
           childList: true,
           subtree: true,
-          characterData: true
+          characterData: true,
+          characterDataOldValue: true
         });
       }
     }, 500);
@@ -243,6 +312,7 @@ function main(): void {
   searchBox.setOnClose(() => {
     // 清空搜索状态
     currentQuery = '';
+    clearObserverDebounceTimer();
     highlighter.clear();
   });
 

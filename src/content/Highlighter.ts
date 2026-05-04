@@ -13,10 +13,8 @@ export class Highlighter {
    * 高亮匹配范围
    * @param ranges 匹配范围数组
    */
-  highlight(ranges: Range[]): void {
-    // 记录当前索引（在清除前）
-    const preserveIndex = this.currentIndex;
-
+  highlight(ranges: Range[], options: { preserveIndex?: number } = {}): void {
+    const preserveIndex = options.preserveIndex ?? this.currentIndex;
     // 先清除旧高亮
     this.clear();
 
