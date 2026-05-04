@@ -12,6 +12,7 @@ let currentOptions: SearchOptions = { caseSensitive: false, wholeWord: false, re
 let searchObserver: MutationObserver | null = null;
 let observerDebounceTimer: number | null = null;
 let isSearching = false; // 搜索过程中暂停 observer
+let isNavigating = false; // 导航过程中暂停 observer
 
 /**
  * 判断当前窗口是否是主 frame
@@ -64,8 +65,8 @@ function setupDynamicContentObserver(
 ): void {
   // 创建 MutationObserver 监听 DOM 变化
   searchObserver = new MutationObserver((mutations) => {
-    // 如果正在搜索过程中，忽略所有变化
-    if (isSearching) {
+    // 如果正在搜索或导航过程中，忽略所有变化
+    if (isSearching || isNavigating) {
       return;
     }
 
@@ -208,6 +209,9 @@ function main(): void {
   });
 
   searchBox.setOnNavigate((direction: 'next' | 'prev') => {
+    // 标记正在导航，暂停 observer
+    isNavigating = true;
+
     const success = direction === 'next' ? navigator.next() : navigator.prev();
 
     if (success) {
@@ -216,6 +220,11 @@ function main(): void {
       const currentIndex = navigator.getCurrentIndex();
       searchBox.updateResult({ total, currentIndex });
     }
+
+    // 导航完成，延迟恢复 observer
+    setTimeout(() => {
+      isNavigating = false;
+    }, 200);
   });
 
   searchBox.setOnClose(() => {
