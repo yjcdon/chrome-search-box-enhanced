@@ -113,7 +113,8 @@ function setupDynamicContentObserver(
 
     observerDebounceTimer = window.setTimeout(() => {
       // 只有在有实际变化时才重新搜索
-      if (currentQuery.trim()) {
+      if (currentQuery.trim() && !isNavigating && !isSearching) {
+        console.log('Observer triggered performSearch');
         performSearch(searchBox, searchEngine, highlighter);
       }
       observerDebounceTimer = null;
