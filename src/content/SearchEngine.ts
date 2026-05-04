@@ -78,10 +78,12 @@ export class SearchEngine {
    */
   private findMatches(text: string, pattern: RegExp): MatchRange[] {
     const matches: MatchRange[] = [];
-    const globalPattern = new RegExp(pattern.source, pattern.flags.includes('g') ? pattern.flags : pattern.flags + 'g');
+
+    // 重置 lastIndex 确保从头开始匹配
+    pattern.lastIndex = 0;
 
     let match: RegExpExecArray | null;
-    while ((match = globalPattern.exec(text)) !== null) {
+    while ((match = pattern.exec(text)) !== null) {
       matches.push({
         start: match.index,
         end: match.index + match[0].length
@@ -89,7 +91,7 @@ export class SearchEngine {
 
       // 防止零宽匹配导致死循环
       if (match[0].length === 0) {
-        globalPattern.lastIndex++;
+        pattern.lastIndex++;
       }
     }
 

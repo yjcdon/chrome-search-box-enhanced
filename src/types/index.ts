@@ -24,10 +24,12 @@ export interface MatchRange {
  * 搜索结果
  */
 export interface SearchResult {
-  /** 匹配总数 */
+  /** 可导航的匹配数（实际高亮数） */
   total: number;
   /** 当前索引 */
   currentIndex: number;
+  /** 实际匹配总数（可能超过最大高亮限制） */
+  totalMatches?: number;
 }
 
 /**

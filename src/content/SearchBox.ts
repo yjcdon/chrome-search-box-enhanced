@@ -11,6 +11,7 @@ export class SearchBox {
   private isOpenState = false;
   private debounceTimer: number | null = null;
   private readonly DEBOUNCE_DELAY = 150; // 防抖延迟 150ms
+  private abortController: AbortController | null = null;
 
   private options: SearchOptions = {
     caseSensitive: false,
@@ -32,6 +33,10 @@ export class SearchBox {
    * 创建搜索框 DOM 结构
    */
   private createDOM(): void {
+    // 创建 AbortController 用于管理事件监听器
+    this.abortController = new AbortController();
+    const signal = this.abortController.signal;
+
     // 主容器
     this.container = document.createElement('div');
     this.container.className = 'vs-search-box';
@@ -61,7 +66,7 @@ export class SearchBox {
       btn.dataset.option = config.key;
       btn.title = config.title;
       btn.textContent = config.text;
-      btn.addEventListener('click', () => this.toggleOption(config.key as keyof SearchOptions));
+      btn.addEventListener('click', () => this.toggleOption(config.key as keyof SearchOptions), { signal });
       optionsGroup.appendChild(btn);
       this.optionButtons.set(config.key, btn);
     });
@@ -83,7 +88,7 @@ export class SearchBox {
     prevBtn.className = 'vs-search-nav-btn prev';
     prevBtn.title = '上一个 (Shift+Enter)';
     prevBtn.innerHTML = '↑';
-    prevBtn.addEventListener('click', () => this.navigate('prev'));
+    prevBtn.addEventListener('click', () => this.navigate('prev'), { signal });
     navGroup.appendChild(prevBtn);
 
     const nextBtn = document.createElement('button');
@@ -91,7 +96,7 @@ export class SearchBox {
     nextBtn.className = 'vs-search-nav-btn next';
     nextBtn.title = '下一个 (Enter)';
     nextBtn.innerHTML = '↓';
-    nextBtn.addEventListener('click', () => this.navigate('next'));
+    nextBtn.addEventListener('click', () => this.navigate('next'), { signal });
     navGroup.appendChild(nextBtn);
 
     this.container.appendChild(navGroup);
@@ -102,12 +107,12 @@ export class SearchBox {
     closeBtn.className = 'vs-search-close';
     closeBtn.title = '关闭 (Esc)';
     closeBtn.innerHTML = '×';
-    closeBtn.addEventListener('click', () => this.close());
+    closeBtn.addEventListener('click', () => this.close(), { signal });
     this.container.appendChild(closeBtn);
 
     // 绑定输入事件
-    this.input.addEventListener('input', () => this.handleInput());
-    this.input.addEventListener('keydown', (e) => this.handleKeyDown(e));
+    this.input.addEventListener('input', () => this.handleInput(), { signal });
+    this.input.addEventListener('keydown', (e) => this.handleKeyDown(e), { signal });
 
     // 添加到页面
     document.body.appendChild(this.container);
@@ -276,6 +281,10 @@ export class SearchBox {
     if (result.total === 0) {
       this.resultLabel.textContent = '无结果';
       this.resultLabel.classList.add('no-results');
+    } else if (result.totalMatches && result.totalMatches > result.total) {
+      // 超过最大高亮限制时显示提示
+      this.resultLabel.textContent = `${result.currentIndex + 1}/${result.total}+ (共${result.totalMatches})`;
+      this.resultLabel.classList.remove('no-results');
     } else {
       this.resultLabel.textContent = `${result.currentIndex + 1}/${result.total}`;
       this.resultLabel.classList.remove('no-results');
@@ -286,6 +295,12 @@ export class SearchBox {
    * 销毁组件
    */
   destroy(): void {
+    // 终止所有事件监听器
+    if (this.abortController) {
+      this.abortController.abort();
+      this.abortController = null;
+    }
+
     // 清除防抖定时器
     if (this.debounceTimer !== null) {
       window.clearTimeout(this.debounceTimer);

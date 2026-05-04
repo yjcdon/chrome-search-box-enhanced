@@ -41,9 +41,9 @@ export class Highlighter {
         range.surroundContents(mark);
         this.highlights.push(mark);
       } catch (e) {
-        // 处理跨元素边界的情况
-        this.handleCrossBoundary(range, mark);
-        this.highlights.push(mark);
+        // 处理跨元素边界的情况（会自动添加到 highlights）
+        // 注意：不使用传入的 mark，handleCrossBoundary 会创建自己的 marks
+        this.handleCrossBoundary(range);
       }
     });
 
@@ -58,12 +58,63 @@ export class Highlighter {
 
   /**
    * 处理跨元素边界的匹配
+   * 使用逐节点包裹策略，避免破坏原有 DOM 结构
    */
-  private handleCrossBoundary(range: Range, mark: HTMLElement): void {
-    // 提取内容并包裹
-    const fragment = range.extractContents();
-    mark.appendChild(fragment);
-    range.insertNode(mark);
+  private handleCrossBoundary(range: Range): void {
+    // 获取 range 内的所有文本节点
+    const textNodes: Text[] = [];
+    const walker = document.createTreeWalker(
+      range.commonAncestorContainer,
+      NodeFilter.SHOW_TEXT,
+      {
+        acceptNode: (node: Node) => {
+          // 只接受在 range 内的节点
+          if (range.intersectsNode(node)) {
+            return NodeFilter.FILTER_ACCEPT;
+          }
+          return NodeFilter.FILTER_REJECT;
+        }
+      }
+    );
+
+    let node: Text | null;
+    while ((node = walker.nextNode() as Text | null)) {
+      textNodes.push(node);
+    }
+
+    // 为每个文本节点创建包裹
+    textNodes.forEach((textNode, idx) => {
+      const nodeMark = document.createElement('mark');
+      nodeMark.className = 'vs-search-highlight';
+
+      // 计算该节点在 range 内的范围
+      const startOffset = (idx === 0 && textNode === range.startContainer)
+        ? range.startOffset
+        : 0;
+      const endOffset = (idx === textNodes.length - 1 && textNode === range.endContainer)
+        ? range.endOffset
+        : textNode.length;
+
+      // 创建子 range 并包裹
+      const subRange = document.createRange();
+      subRange.setStart(textNode, startOffset);
+      subRange.setEnd(textNode, endOffset);
+
+      try {
+        subRange.surroundContents(nodeMark);
+        this.highlights.push(nodeMark);
+      } catch {
+        // 如果仍然失败，使用 extractContents 作为后备
+        const fragment = subRange.extractContents();
+        nodeMark.appendChild(fragment);
+        subRange.insertNode(nodeMark);
+        this.highlights.push(nodeMark);
+      }
+    });
+
+    // 移除原始 mark（它不会被使用）
+    // mark 元素是调用者创建的，但我们没有使用它
+    // 由于我们直接操作 DOM，不需要额外的处理
   }
 
   /**
@@ -113,9 +164,16 @@ export class Highlighter {
   }
 
   /**
-   * 获取高亮元素数量（实际匹配总数）
+   * 获取可导航的高亮数量
    */
   getCount(): number {
+    return this.highlights.length;
+  }
+
+  /**
+   * 获取实际匹配总数（可能超过 MAX_HIGHLIGHTS）
+   */
+  getTotalMatches(): number {
     return this.totalMatches;
   }
 

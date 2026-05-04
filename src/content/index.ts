@@ -1,3 +1,5 @@
+import '../styles/search-box.css';
+
 import { SearchBox } from './SearchBox.js';
 import { SearchEngine } from './SearchEngine.js';
 import { Highlighter } from './Highlighter.js';
@@ -9,6 +11,13 @@ let currentQuery = '';
 let currentOptions: SearchOptions = { caseSensitive: false, wholeWord: false, regex: false };
 let searchObserver: MutationObserver | null = null;
 let observerDebounceTimer: number | null = null;
+
+/**
+ * 判断当前窗口是否是主 frame
+ */
+function isMainFrame(): boolean {
+  return window.self === window.top;
+}
 
 /**
  * 判断是否是查找快捷键 (Cmd+F / Ctrl+F)
@@ -77,8 +86,9 @@ function setupDynamicContentObserver(
       highlighter.highlight(ranges);
 
       const total = highlighter.getCount();
+      const totalMatches = highlighter.getTotalMatches();
       const currentIndex = total > 0 ? highlighter.getCurrentIndex() : 0;
-      searchBox.updateResult({ total, currentIndex });
+      searchBox.updateResult({ total, currentIndex, totalMatches });
 
       observerDebounceTimer = null;
     }, 200);
@@ -88,7 +98,9 @@ function setupDynamicContentObserver(
   searchObserver.observe(document.body, {
     childList: true,
     subtree: true,
-    characterData: true
+    characterData: true,
+    attributes: true,
+    attributeFilter: ['style', 'class', 'hidden', 'display']
   });
 }
 
@@ -96,6 +108,14 @@ function setupDynamicContentObserver(
  * 主入口
  */
 function main(): void {
+  // 仅在主 frame 中初始化搜索框
+  // iframe 中不显示搜索框，但保留快捷键拦截以便在 iframe 内也能触发主 frame 搜索
+  if (!isMainFrame()) {
+    // 在 iframe 中，仅转发快捷键到主 frame
+    // 搜索框和搜索逻辑只在主 frame 中运行
+    return;
+  }
+
   // 初始化组件
   const searchEngine = new SearchEngine();
   const highlighter = new Highlighter();
@@ -127,8 +147,9 @@ function main(): void {
 
     // 更新结果显示
     const total = highlighter.getCount();
+    const totalMatches = highlighter.getTotalMatches();
     const currentIndex = total > 0 ? highlighter.getCurrentIndex() : 0;
-    searchBox.updateResult({ total, currentIndex });
+    searchBox.updateResult({ total, currentIndex, totalMatches });
 
     // 滚动到第一个匹配
     if (total > 0) {
