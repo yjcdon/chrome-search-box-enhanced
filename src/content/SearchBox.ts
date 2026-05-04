@@ -124,9 +124,25 @@ export class SearchBox {
    * 处理键盘事件
    */
   private handleKeyDown(event: KeyboardEvent): void {
-    if (event.key === 'Enter') {
+    // 导航快捷键
+    if (event.key === 'Enter' && !event.altKey) {
       event.preventDefault();
       this.navigate(event.shiftKey ? 'prev' : 'next');
+      return;
+    }
+
+    // 选项快捷键
+    if (event.altKey) {
+      const key = event.key.toLowerCase();
+      const optionKey: keyof SearchOptions | null =
+        key === 'c' ? 'caseSensitive' :
+        key === 'w' ? 'wholeWord' :
+        key === 'r' ? 'regex' : null;
+
+      if (optionKey) {
+        event.preventDefault();
+        this.toggleOption(optionKey);
+      }
     }
   }
 
