@@ -11,6 +11,7 @@ let currentQuery = '';
 let currentOptions: SearchOptions = { caseSensitive: false, wholeWord: false, regex: false };
 let searchObserver: MutationObserver | null = null;
 let observerDebounceTimer: number | null = null;
+let isSearching = false; // 搜索过程中暂停 observer
 
 /**
  * 判断当前窗口是否是主 frame
@@ -61,9 +62,6 @@ function setupDynamicContentObserver(
   searchEngine: SearchEngine,
   highlighter: Highlighter
 ): void {
-  // 搜索过程中暂停 observer 的标志
-  let isSearching = false;
-
   // 创建 MutationObserver 监听 DOM 变化
   searchObserver = new MutationObserver((mutations) => {
     // 如果正在搜索过程中，忽略所有变化
@@ -113,26 +111,9 @@ function setupDynamicContentObserver(
     }
 
     observerDebounceTimer = window.setTimeout(() => {
-      // 标记正在搜索，暂停 observer
-      isSearching = true;
-
-      // 重新搜索
-      const ranges = searchEngine.search(currentQuery, currentOptions);
-      highlighter.highlight(ranges);
-
-      const total = highlighter.getCount();
-      const totalMatches = highlighter.getTotalMatches();
-      const currentIndex = total > 0 ? highlighter.getCurrentIndex() : 0;
-      searchBox.updateResult({ total, currentIndex, totalMatches });
-
+      performSearch(searchBox, searchEngine, highlighter);
       observerDebounceTimer = null;
-
-      // 搜索完成，恢复 observer
-      // 延迟恢复，确保 DOM 操作完成
-      setTimeout(() => {
-        isSearching = false;
-      }, 50);
-    }, 200);
+    }, 300);
   });
 
   // 开始监听
@@ -141,6 +122,52 @@ function setupDynamicContentObserver(
     subtree: true,
     characterData: true
   });
+}
+
+/**
+ * 执行搜索（统一的搜索逻辑）
+ */
+function performSearch(
+  searchBox: SearchBox,
+  searchEngine: SearchEngine,
+  highlighter: Highlighter
+): void {
+  // 标记正在搜索
+  isSearching = true;
+
+  // 暂停 observer（断开连接）
+  if (searchObserver) {
+    searchObserver.disconnect();
+  }
+
+  // 清除旧高亮
+  highlighter.clear();
+
+  // 执行搜索
+  const ranges = searchEngine.search(currentQuery, currentOptions);
+  highlighter.highlight(ranges);
+
+  const total = highlighter.getCount();
+  const totalMatches = highlighter.getTotalMatches();
+  const currentIndex = total > 0 ? highlighter.getCurrentIndex() : 0;
+  searchBox.updateResult({ total, currentIndex, totalMatches });
+
+  // 滚动到第一个匹配
+  if (total > 0) {
+    highlighter.scrollToCurrent();
+  }
+
+  // 搜索完成，延迟恢复 observer
+  setTimeout(() => {
+    isSearching = false;
+    if (searchObserver) {
+      searchObserver.observe(document.body, {
+        childList: true,
+        subtree: true,
+        characterData: true
+      });
+    }
+  }, 100);
 }
 
 /**
@@ -170,30 +197,14 @@ function main(): void {
     currentQuery = query;
     currentOptions = options;
 
-    // 清除旧高亮
-    highlighter.clear();
-
     if (!query.trim()) {
+      highlighter.clear();
       searchBox.updateResult({ total: 0, currentIndex: 0 });
       return;
     }
 
-    // 执行搜索
-    const ranges = searchEngine.search(query, options);
-
-    // 高亮结果
-    highlighter.highlight(ranges);
-
-    // 更新结果显示
-    const total = highlighter.getCount();
-    const totalMatches = highlighter.getTotalMatches();
-    const currentIndex = total > 0 ? highlighter.getCurrentIndex() : 0;
-    searchBox.updateResult({ total, currentIndex, totalMatches });
-
-    // 滚动到第一个匹配
-    if (total > 0) {
-      highlighter.scrollToCurrent();
-    }
+    // 使用统一的搜索函数
+    performSearch(searchBox, searchEngine, highlighter);
   });
 
   searchBox.setOnNavigate((direction: 'next' | 'prev') => {
