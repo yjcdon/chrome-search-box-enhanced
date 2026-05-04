@@ -1,0 +1,14 @@
+{
+  "name": "vscode-search-extension",
+  "version": "1.0.0",
+  "description": "VSCode 风格搜索 Chrome 扩展",
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite build --watch"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0",
+    "vite": "^5.2.0"
+  }
+}

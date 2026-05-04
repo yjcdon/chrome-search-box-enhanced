@@ -1,0 +1,16 @@
+{
+  "manifest_version": 3,
+  "name": "VSCode Search",
+  "version": "1.0.0",
+  "description": "VSCode 风格的页面搜索体验，覆盖 Chrome 原生查找功能",
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "css": ["styles.css"],
+      "run_at": "document_start",
+      "all_frames": true
+    }
+  ],
+  "permissions": []
+}
