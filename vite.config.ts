@@ -13,5 +13,8 @@ export default defineConfig({
     },
     outDir: 'dist',
     minify: false
+  },
+  css: {
+    postcss: {} // 使用默认的 CSS 处理
   }
 });
