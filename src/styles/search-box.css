@@ -20,6 +20,39 @@
   min-width: 300px;
 }
 
+/* 拖动时的样式 */
+.vs-search-box.dragging {
+  opacity: 0.9;
+  cursor: move;
+  user-select: none;
+}
+
+/* 拖动手柄 */
+.vs-search-drag-handle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 24px;
+  margin-right: 4px;
+  color: #808080;
+  font-size: 10px;
+  letter-spacing: -2px;
+  cursor: grab;
+  user-select: none;
+  border-radius: 2px;
+  transition: background-color 0.2s;
+}
+
+.vs-search-drag-handle:hover {
+  background-color: #4a4a4a;
+  color: #cccccc;
+}
+
+.vs-search-drag-handle:active {
+  cursor: grabbing;
+}
+
 /* 输入框 */
 .vs-search-input {
   flex: 1;

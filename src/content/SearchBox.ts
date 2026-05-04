@@ -1,5 +1,11 @@
 import type { SearchOptions, SearchResult } from '../types/index.js';
 
+/** 位置存储 key */
+const POSITION_STORAGE_KEY = 'vs-search-box-position';
+
+/** 默认位置 */
+const DEFAULT_POSITION = { right: 10, top: 10 };
+
 /**
  * VSCode 风格搜索框组件
  */
@@ -7,11 +13,19 @@ export class SearchBox {
   private container: HTMLElement | null = null;
   private input: HTMLInputElement | null = null;
   private resultLabel: HTMLElement | null = null;
+  private dragHandle: HTMLElement | null = null;
   private optionButtons: Map<string, HTMLButtonElement> = new Map();
   private isOpenState = false;
   private debounceTimer: number | null = null;
   private readonly DEBOUNCE_DELAY = 150; // 防抖延迟 150ms
   private abortController: AbortController | null = null;
+
+  // 拖动状态
+  private isDragging = false;
+  private dragStartX = 0;
+  private dragStartY = 0;
+  private containerStartX = 0;
+  private containerStartY = 0;
 
   private options: SearchOptions = {
     caseSensitive: false,
@@ -41,6 +55,13 @@ export class SearchBox {
     this.container = document.createElement('div');
     this.container.className = 'vs-search-box';
     this.container.style.display = 'none';
+
+    // 拖动手柄
+    this.dragHandle = document.createElement('div');
+    this.dragHandle.className = 'vs-search-drag-handle';
+    this.dragHandle.title = '拖动移动位置';
+    this.dragHandle.innerHTML = '⋮⋮';
+    this.container.appendChild(this.dragHandle);
 
     // 输入框
     this.input = document.createElement('input');
@@ -114,8 +135,136 @@ export class SearchBox {
     this.input.addEventListener('input', () => this.handleInput(), { signal });
     this.input.addEventListener('keydown', (e) => this.handleKeyDown(e), { signal });
 
+    // 绑定拖动事件
+    this.dragHandle.addEventListener('mousedown', (e) => this.handleDragStart(e), { signal });
+    document.addEventListener('mousemove', (e) => this.handleDragMove(e), { signal });
+    document.addEventListener('mouseup', () => this.handleDragEnd(), { signal });
+
     // 添加到页面
     document.body.appendChild(this.container);
+
+    // 初始化位置
+    this.initPosition();
+  }
+
+  /**
+   * 初始化位置（从 localStorage 读取或使用默认位置）
+   */
+  private initPosition(): void {
+    if (!this.container) return;
+
+    const savedPosition = this.loadPosition();
+    if (savedPosition) {
+      this.container.style.left = `${savedPosition.left}px`;
+      this.container.style.top = `${savedPosition.top}px`;
+      this.container.style.right = 'auto';
+    } else {
+      // 使用默认位置（右上角）
+      this.container.style.right = `${DEFAULT_POSITION.right}px`;
+      this.container.style.top = `${DEFAULT_POSITION.top}px`;
+      this.container.style.left = 'auto';
+    }
+  }
+
+  /**
+   * 从 localStorage 加载位置
+   */
+  private loadPosition(): { left: number; top: number } | null {
+    try {
+      const saved = localStorage.getItem(POSITION_STORAGE_KEY);
+      if (saved) {
+        return JSON.parse(saved);
+      }
+    } catch {
+      // localStorage 不可用或数据损坏
+    }
+    return null;
+  }
+
+  /**
+   * 保存位置到 localStorage
+   */
+  private savePosition(): void {
+    if (!this.container) return;
+
+    const left = parseInt(this.container.style.left || '0', 10);
+    const top = parseInt(this.container.style.top || '0', 10);
+
+    try {
+      localStorage.setItem(POSITION_STORAGE_KEY, JSON.stringify({ left, top }));
+    } catch {
+      // localStorage 不可用
+    }
+  }
+
+  /**
+   * 拖动开始
+   */
+  private handleDragStart(event: MouseEvent): void {
+    if (!this.container) return;
+
+    event.preventDefault();
+    this.isDragging = true;
+
+    // 记录起始位置
+    this.dragStartX = event.clientX;
+    this.dragStartY = event.clientY;
+
+    // 获取容器当前位置
+    const rect = this.container.getBoundingClientRect();
+    this.containerStartX = rect.left;
+    this.containerStartY = rect.top;
+
+    // 切换到 left/top 定位（如果之前是 right 定位）
+    if (this.container.style.left === 'auto' || !this.container.style.left) {
+      this.container.style.left = `${rect.left}px`;
+      this.container.style.top = `${rect.top}px`;
+      this.container.style.right = 'auto';
+    }
+
+    // 添加拖动样式
+    this.container.classList.add('dragging');
+  }
+
+  /**
+   * 拖动移动
+   */
+  private handleDragMove(event: MouseEvent): void {
+    if (!this.isDragging || !this.container) return;
+
+    const deltaX = event.clientX - this.dragStartX;
+    const deltaY = event.clientY - this.dragStartY;
+
+    let newLeft = this.containerStartX + deltaX;
+    let newTop = this.containerStartY + deltaY;
+
+    // 边界限制：不超出视口
+    const containerWidth = this.container.offsetWidth;
+    const containerHeight = this.container.offsetHeight;
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+
+    newLeft = Math.max(0, Math.min(newLeft, viewportWidth - containerWidth));
+    newTop = Math.max(0, Math.min(newTop, viewportHeight - containerHeight));
+
+    this.container.style.left = `${newLeft}px`;
+    this.container.style.top = `${newTop}px`;
+  }
+
+  /**
+   * 拖动结束
+   */
+  private handleDragEnd(): void {
+    if (!this.isDragging) return;
+
+    this.isDragging = false;
+
+    if (this.container) {
+      this.container.classList.remove('dragging');
+    }
+
+    // 保存位置
+    this.savePosition();
   }
 
   /**
@@ -307,12 +456,16 @@ export class SearchBox {
       this.debounceTimer = null;
     }
 
+    // 清理拖动状态
+    this.isDragging = false;
+
     if (this.container && this.container.parentNode) {
       this.container.parentNode.removeChild(this.container);
     }
     this.container = null;
     this.input = null;
     this.resultLabel = null;
+    this.dragHandle = null;
     this.optionButtons.clear();
   }
 }
