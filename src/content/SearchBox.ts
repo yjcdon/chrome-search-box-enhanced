@@ -75,15 +75,15 @@ export class SearchBox {
     optionsGroup.className = 'vs-search-options';
 
     const optionConfigs = [
-      { key: 'caseSensitive', title: '区分大小写 (Alt+C)', text: 'Aa' },
-      { key: 'wholeWord', title: '全词匹配 (Alt+W)', text: 'ab' },
-      { key: 'regex', title: '使用正则表达式 (Alt+R)', text: '.*' }
+      { key: 'caseSensitive', title: '区分大小写 (Alt+C)', text: 'Aa', className: '' },
+      { key: 'wholeWord', title: '全词匹配 (Alt+W)', text: 'ab', className: 'whole-word' },
+      { key: 'regex', title: '使用正则表达式 (Alt+R)', text: '.*', className: 'regex' }
     ];
 
     optionConfigs.forEach(config => {
       const btn = document.createElement('button');
       btn.type = 'button';
-      btn.className = 'vs-search-option-btn';
+      btn.className = 'vs-search-option-btn' + (config.className ? ' ' + config.className : '');
       btn.dataset.option = config.key;
       btn.title = config.title;
       btn.textContent = config.text;

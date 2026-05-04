@@ -104,6 +104,29 @@
   color: #ffffff;
 }
 
+/* 全词匹配按钮样式 - 添加边框效果 */
+.vs-search-option-btn.whole-word {
+  border: 1px solid #454545;
+  border-radius: 3px;
+  padding: 2px 5px;
+  font-size: 11px;
+  letter-spacing: 0;
+}
+
+.vs-search-option-btn.whole-word:hover {
+  border-color: #cccccc;
+}
+
+.vs-search-option-btn.whole-word.active {
+  border-color: #007fd4;
+}
+
+/* 正则表达式按钮样式 */
+.vs-search-option-btn.regex {
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 12px;
+}
+
 /* 结果计数 */
 .vs-search-results {
   min-width: 50px;
