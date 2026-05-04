@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "VSCode Search",
+  "name": "chromeSearchBoxEx",
   "version": "1.0.0",
   "description": "VSCode 风格的页面搜索体验，覆盖 Chrome 原生查找功能",
   "icons": {
