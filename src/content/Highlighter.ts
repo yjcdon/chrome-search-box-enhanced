@@ -223,7 +223,7 @@ export class Highlighter {
     const current = this.highlights[this.currentIndex];
     if (current) {
       current.scrollIntoView({
-        behavior: 'smooth',
+        behavior: 'instant',
         block: 'center',
         inline: 'nearest'
       });
