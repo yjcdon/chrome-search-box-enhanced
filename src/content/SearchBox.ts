@@ -6,6 +6,30 @@ const POSITION_STORAGE_KEY = 'vs-search-box-position';
 /** 默认位置 */
 const DEFAULT_POSITION = { right: 10, top: 10 };
 
+/** 检测是否为 macOS */
+const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+
+/** 键盘符号映射 */
+const KEY_SYMBOLS = {
+  mac: {
+    alt: '⌥',
+    shift: '⇧',
+    enter: '↩︎',
+    esc: 'Esc'
+  },
+  windows: {
+    alt: 'Alt',
+    shift: 'Shift',
+    enter: 'Enter',
+    esc: 'Esc'
+  }
+};
+
+/** 获取键盘符号 */
+function getKeySymbol(key: 'alt' | 'shift' | 'enter' | 'esc'): string {
+  return isMac ? KEY_SYMBOLS.mac[key] : KEY_SYMBOLS.windows[key];
+}
+
 /**
  * VSCode 风格搜索框组件
  */
@@ -75,9 +99,9 @@ export class SearchBox {
     optionsGroup.className = 'vs-search-options';
 
     const optionConfigs = [
-      { key: 'caseSensitive', title: '区分大小写 (Alt+C)', text: 'Aa', className: '' },
-      { key: 'wholeWord', title: '全词匹配 (Alt+W)', text: 'ab', className: 'whole-word' },
-      { key: 'regex', title: '使用正则表达式 (Alt+R)', text: '.*', className: 'regex' }
+      { key: 'caseSensitive', title: `区分大小写 (${getKeySymbol('alt')}C)`, text: 'Cc', className: '' },
+      { key: 'wholeWord', title: `全词匹配 (${getKeySymbol('alt')}W)`, text: 'W', className: 'whole-word' },
+      { key: 'regex', title: `使用正则表达式 (${getKeySymbol('alt')}R)`, text: '.*', className: 'regex' }
     ];
 
     optionConfigs.forEach(config => {
@@ -107,7 +131,7 @@ export class SearchBox {
     const prevBtn = document.createElement('button');
     prevBtn.type = 'button';
     prevBtn.className = 'vs-search-nav-btn prev';
-    prevBtn.title = '上一个 (Shift+Enter)';
+    prevBtn.title = `上一个 (${getKeySymbol('shift')}${getKeySymbol('enter')})`;
     prevBtn.innerHTML = '↑';
     prevBtn.addEventListener('click', () => this.navigate('prev'), { signal });
     navGroup.appendChild(prevBtn);
@@ -115,7 +139,7 @@ export class SearchBox {
     const nextBtn = document.createElement('button');
     nextBtn.type = 'button';
     nextBtn.className = 'vs-search-nav-btn next';
-    nextBtn.title = '下一个 (Enter)';
+    nextBtn.title = `下一个 (${getKeySymbol('enter')})`;
     nextBtn.innerHTML = '↓';
     nextBtn.addEventListener('click', () => this.navigate('next'), { signal });
     navGroup.appendChild(nextBtn);
@@ -126,7 +150,7 @@ export class SearchBox {
     const closeBtn = document.createElement('button');
     closeBtn.type = 'button';
     closeBtn.className = 'vs-search-close';
-    closeBtn.title = '关闭 (Esc)';
+    closeBtn.title = `关闭 (${getKeySymbol('esc')})`;
     closeBtn.innerHTML = '×';
     closeBtn.addEventListener('click', () => this.close(), { signal });
     this.container.appendChild(closeBtn);
