@@ -4,7 +4,7 @@
   "description": "VSCode 风格搜索 Chrome 扩展",
   "type": "module",
   "scripts": {
-    "build": "vite build",
+    "build": "vite build && cp manifest.json dist/ && node scripts/generate-icons.mjs",
     "dev": "vite build --watch"
   },
   "devDependencies": {
