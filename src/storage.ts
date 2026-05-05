@@ -20,7 +20,18 @@ export function normalizeSiteInput(value: string): string | null {
 export async function getDisabledSites(): Promise<string[]> {
   const result = await chrome.storage.local.get(STORAGE_KEY);
   const value = result[STORAGE_KEY];
-  return Array.isArray(value) ? value : [];
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return Array.from(
+    new Set(
+      value
+        .filter((site): site is string => typeof site === 'string')
+        .map(normalizeSiteInput)
+        .filter((site): site is string => !!site)
+    )
+  );
 }
 
 export async function setDisabledSites(sites: string[]): Promise<void> {
@@ -54,5 +65,9 @@ export async function removeDisabledSite(site: string): Promise<void> {
 
 export function isSiteDisabled(hostname: string, disabledSites: string[]): boolean {
   const normalizedHostname = normalizeSiteInput(hostname);
-  return !!normalizedHostname && disabledSites.includes(normalizedHostname);
+  const normalizedDisabledSites = disabledSites
+    .map(normalizeSiteInput)
+    .filter((site): site is string => !!site);
+
+  return !!normalizedHostname && normalizedDisabledSites.includes(normalizedHostname);
 }

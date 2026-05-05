@@ -15,33 +15,44 @@ function clearError(): void {
   errorMsg.textContent = '';
 }
 
+function renderEmptyState(): void {
+  const item = document.createElement('li');
+  item.className = 'empty-state';
+  item.textContent = '暂无禁用网站';
+  disabledList.replaceChildren(item);
+}
+
+function renderDisabledSite(site: string): HTMLLIElement {
+  const item = document.createElement('li');
+
+  const siteName = document.createElement('span');
+  siteName.className = 'site-name';
+  siteName.textContent = site;
+
+  const deleteBtn = document.createElement('button');
+  deleteBtn.className = 'delete-btn';
+  deleteBtn.type = 'button';
+  deleteBtn.textContent = '×';
+  deleteBtn.setAttribute('aria-label', `删除 ${site}`);
+  deleteBtn.addEventListener('click', async () => {
+    await removeDisabledSite(site);
+    await loadDisabledSites();
+  });
+
+  item.append(siteName, deleteBtn);
+  return item;
+}
+
 async function loadDisabledSites(): Promise<void> {
   const sites = await getDisabledSites();
   siteCount.textContent = String(sites.length);
 
   if (sites.length === 0) {
-    disabledList.innerHTML = '<li class="empty-state">暂无禁用网站</li>';
+    renderEmptyState();
     return;
   }
 
-  disabledList.innerHTML = sites.map(site => `
-    <li>
-      <span class="site-name">${site}</span>
-      <button class="delete-btn" data-site="${site}">×</button>
-    </li>
-  `).join('');
-
-  // 绑定删除按钮事件
-  disabledList.querySelectorAll('.delete-btn').forEach(btn => {
-    btn.addEventListener('click', async (e) => {
-      const target = e.currentTarget as HTMLButtonElement;
-      const site = target.dataset.site;
-      if (site) {
-        await removeDisabledSite(site);
-        await loadDisabledSites();
-      }
-    });
-  });
+  disabledList.replaceChildren(...sites.map(renderDisabledSite));
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -53,9 +64,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     input.value = currentSite;
   } else {
     input.value = '';
-    input.placeholder = '当前页面不可添加';
-    input.disabled = true;
-    addBtn.disabled = true;
+    input.placeholder = '输入要禁用的域名';
   }
 
   await loadDisabledSites();
