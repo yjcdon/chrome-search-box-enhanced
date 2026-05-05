@@ -1,4 +1,8 @@
-import type { SearchOptions, MatchRange } from '../types/index.js';
+import { SEARCH_UNIT_BOUNDARY_TAGS, SKIPPED_SEARCH_TAGS } from '../constants.js';
+import { isElementHidden, isInsideSearchBox } from './dom-utils.js';
+import { compareRangesByViewportPosition } from './dom-position-utils.js';
+import { buildSearchPattern, findMatches } from '../search-utils.js';
+import type { MatchRange, SearchOptions } from '../types/index.js';
 
 interface TextSegment {
   node: Text;
@@ -28,8 +32,8 @@ export class SearchEngine {
     }
 
     try {
-      // 1. 构建正则表达式
-      const pattern = this.buildPattern(query, options);
+      // 1. 构建正则表达式（trim 搜索词，忽略前后空格）
+      const pattern = buildSearchPattern(query.trim(), options);
 
       // 2. 遍历页面所有文本节点，并按可连续搜索的区域聚合
       const ranges: Range[] = [];
@@ -37,7 +41,7 @@ export class SearchEngine {
 
       // 3. 在每个搜索区域中查找匹配。聚合后可以匹配被语法高亮拆开的文本节点，如 console + .
       searchUnits.forEach((unit) => {
-        const matches = this.findMatches(unit.text, pattern);
+        const matches = findMatches(unit.text, pattern);
 
         matches.forEach(match => {
           const range = this.createRangeFromMatch(unit, match);
@@ -142,21 +146,7 @@ export class SearchEngine {
   private isElementVisible(element: Element): boolean {
     let el: Element | null = element;
     while (el) {
-      const computedStyle = window.getComputedStyle(el);
-
-      // 跳过 display:none
-      if (computedStyle.display === 'none') {
-        return false;
-      }
-
-      // 跳过 visibility:hidden / collapse
-      if (computedStyle.visibility === 'hidden' ||
-          computedStyle.visibility === 'collapse') {
-        return false;
-      }
-
-      // 跳过 hidden 属性（不检查 aria-hidden，保持和 Chrome 原生查找一致）
-      if ((el as HTMLElement).hidden) {
+      if (isElementHidden(el)) {
         return false;
       }
 
@@ -170,34 +160,9 @@ export class SearchEngine {
    * 找到文本节点所属的连续搜索区域
    */
   private getSearchUnitRoot(textNode: Text, root: Node): Node {
-    const boundaryTags = new Set([
-      'A',
-      'ARTICLE',
-      'ASIDE',
-      'BLOCKQUOTE',
-      'BUTTON',
-      'CAPTION',
-      'CODE',
-      'DD',
-      'DIV',
-      'DT',
-      'FIGCAPTION',
-      'H1',
-      'H2',
-      'H3',
-      'H4',
-      'H5',
-      'H6',
-      'LI',
-      'P',
-      'PRE',
-      'TD',
-      'TH'
-    ]);
-
     let parent = textNode.parentElement;
     while (parent && parent !== root) {
-      if (boundaryTags.has(parent.tagName)) {
+      if (SEARCH_UNIT_BOUNDARY_TAGS.includes(parent.tagName)) {
         return parent;
       }
       parent = parent.parentElement;
@@ -228,83 +193,26 @@ export class SearchEngine {
   }
 
   /**
-   * 构建正则表达式
-   */
-  private buildPattern(query: string, options: SearchOptions): RegExp {
-    let pattern = query;
-
-    // 如果不是正则模式，转义特殊字符
-    if (!options.regex) {
-      pattern = pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    }
-
-    // 全词匹配
-    if (options.wholeWord) {
-      pattern = `\\b${pattern}\\b`;
-    }
-
-    // 构建正则
-    const flags = options.caseSensitive ? 'g' : 'gi';
-    return new RegExp(pattern, flags);
-  }
-
-  /**
-   * 在文本中查找所有匹配位置
-   */
-  private findMatches(text: string, pattern: RegExp): MatchRange[] {
-    const matches: MatchRange[] = [];
-
-    // 重置 lastIndex 确保从头开始匹配
-    pattern.lastIndex = 0;
-
-    let match: RegExpExecArray | null;
-    while ((match = pattern.exec(text)) !== null) {
-      matches.push({
-        start: match.index,
-        end: match.index + match[0].length
-      });
-
-      // 防止零宽匹配导致死循环
-      if (match[0].length === 0) {
-        pattern.lastIndex++;
-      }
-    }
-
-    return matches;
-  }
-
-  /**
    * 判断是否应该搜索该节点
    */
   private shouldSearchNode(node: Node): boolean {
-    // 跳过 script、style、textarea、input、select
-    const skipTags = ['SCRIPT', 'STYLE', 'TEXTAREA', 'INPUT', 'SELECT'];
-
     let parent: Node | null = node.parentNode;
     while (parent) {
       if (parent.nodeType === Node.ELEMENT_NODE) {
         const element = parent as HTMLElement;
         const tagName = element.tagName;
 
-        if (skipTags.includes(tagName)) {
+        if (SKIPPED_SEARCH_TAGS.includes(tagName)) {
           return false;
         }
 
         // 跳过扩展自己的搜索框
-        if (element.closest('.vs-search-box')) {
+        if (isInsideSearchBox(element)) {
           return false;
         }
 
-        // 跳过隐藏元素（只检查 hidden 属性，不检查 aria-hidden，保持和 Chrome 原生查找一致）
-        if (element.hidden) {
-          return false;
-        }
-
-        // 跳过 display:none / visibility:hidden 的元素
-        const style = window.getComputedStyle(element);
-        if (style.display === 'none' ||
-            style.visibility === 'hidden' ||
-            style.visibility === 'collapse') {
+        // 跳过隐藏元素（不检查 aria-hidden，保持和 Chrome 原生查找一致）
+        if (isElementHidden(element)) {
           return false;
         }
       }
@@ -322,22 +230,8 @@ export class SearchEngine {
       try {
         return a.compareBoundaryPoints(Range.START_TO_START, b);
       } catch {
-        return this.compareRangeRects(a, b);
+        return compareRangesByViewportPosition(a, b);
       }
     });
-  }
-
-  /**
-   * 不同 DOM root 的 Range 无法直接 compareBoundaryPoints，使用视口位置兜底
-   */
-  private compareRangeRects(a: Range, b: Range): number {
-    const rectA = a.getBoundingClientRect();
-    const rectB = b.getBoundingClientRect();
-
-    if (rectA.top !== rectB.top) {
-      return rectA.top - rectB.top;
-    }
-
-    return rectA.left - rectB.left;
   }
 }

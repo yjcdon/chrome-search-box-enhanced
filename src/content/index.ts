@@ -5,11 +5,22 @@ import { SearchEngine } from './SearchEngine.js';
 import { Highlighter } from './Highlighter.js';
 import { Navigator } from './Navigator.js';
 import type { SearchContext, SearchOptions } from '../types/index.js';
-import { getDisabledSites, isSiteDisabled } from '../storage.js';
+import {
+  DEFAULT_SEARCH_OPTIONS,
+  DISABLED_SITES_STORAGE_KEY,
+  DYNAMIC_CONTENT_DEBOUNCE_DELAY,
+  NAVIGATION_OBSERVER_RESTORE_DELAY,
+  SEARCH_OBSERVER_OPTIONS,
+  SEARCH_OBSERVER_RESTORE_DELAY
+} from '../constants.js';
+import { containsSearchHighlight, isInsideSearchBox, isSearchHighlightElement } from './dom-utils.js';
+import { textMatchesSearchQuery } from '../search-utils.js';
+import { isSiteDisabled } from '../site-utils.js';
+import { getDisabledSites } from '../storage.js';
 
 // 当前搜索状态
 let currentQuery = '';
-let currentOptions: SearchOptions = { caseSensitive: false, wholeWord: false, regex: false };
+let currentOptions: SearchOptions = { ...DEFAULT_SEARCH_OPTIONS };
 let searchObserver: MutationObserver | null = null;
 let observerDebounceTimer: number | null = null;
 let isSearching = false; // 搜索过程中暂停 observer
@@ -21,6 +32,31 @@ function clearObserverDebounceTimer(): void {
     window.clearTimeout(observerDebounceTimer);
     observerDebounceTimer = null;
   }
+}
+
+function hasCurrentQuery(): boolean {
+  return currentQuery.trim().length > 0;
+}
+
+function pauseSearchObserver(): void {
+  if (searchObserver) {
+    searchObserver.disconnect();
+    searchObserver.takeRecords();
+  }
+}
+
+function resumeSearchObserver(): void {
+  if (searchObserver) {
+    searchObserver.takeRecords();
+    searchObserver.observe(document.body, SEARCH_OBSERVER_OPTIONS);
+  }
+}
+
+function resumeSearchObserverLater(delay: number, beforeResume: () => void): void {
+  setTimeout(() => {
+    beforeResume();
+    resumeSearchObserver();
+  }, delay);
 }
 
 /**
@@ -49,7 +85,7 @@ async function refreshDisabledState(searchBox?: SearchBox, highlighter?: Highlig
 function watchDisabledSites(searchBox: SearchBox, highlighter: Highlighter): void {
   try {
     chrome.storage.onChanged.addListener((changes, areaName) => {
-      if (areaName !== 'local' || !changes.disabledSites) {
+      if (areaName !== 'local' || !changes[DISABLED_SITES_STORAGE_KEY]) {
         return;
       }
       void refreshDisabledState(searchBox, highlighter);
@@ -59,32 +95,8 @@ function watchDisabledSites(searchBox: SearchBox, highlighter: Highlighter): voi
   }
 }
 
-function escapeRegExp(text: string): string {
-  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
 function textMatchesCurrentQuery(text: string | null): boolean {
-  const query = currentQuery.trim();
-  if (!query || !text) {
-    return false;
-  }
-
-  try {
-    if (currentOptions.regex || currentOptions.wholeWord) {
-      const source = currentOptions.regex ? query : escapeRegExp(query);
-      const pattern = currentOptions.wholeWord ? `\\b${source}\\b` : source;
-      const flags = currentOptions.caseSensitive ? '' : 'i';
-      return new RegExp(pattern, flags).test(text);
-    }
-
-    if (currentOptions.caseSensitive) {
-      return text.includes(query);
-    }
-
-    return text.toLowerCase().includes(query.toLowerCase());
-  } catch {
-    return false;
-  }
+  return textMatchesSearchQuery(text, currentQuery, currentOptions);
 }
 
 function nodeTextMatchesCurrentQuery(node: Node): boolean {
@@ -105,6 +117,34 @@ function mutationsMayAffectCurrentSearch(mutations: MutationRecord[]): boolean {
     const changedNodes = [...Array.from(mutation.addedNodes), ...Array.from(mutation.removedNodes)];
     return changedNodes.some(nodeTextMatchesCurrentQuery);
   });
+}
+
+function getChangedNodes(mutation: MutationRecord): Node[] {
+  return [...Array.from(mutation.addedNodes), ...Array.from(mutation.removedNodes)];
+}
+
+function mutationIsHighlightRelated(mutation: MutationRecord): boolean {
+  const target = mutation.target;
+
+  if (!(target instanceof HTMLElement)) {
+    return false;
+  }
+
+  if (isSearchHighlightElement(target) || isInsideSearchBox(target)) {
+    return true;
+  }
+
+  if (mutation.type !== 'childList') {
+    return false;
+  }
+
+  return getChangedNodes(mutation).some(node =>
+    node instanceof HTMLElement && containsSearchHighlight(node)
+  );
+}
+
+function mutationsAreHighlightRelated(mutations: MutationRecord[]): boolean {
+  return mutations.some(mutationIsHighlightRelated);
 }
 
 /**
@@ -175,40 +215,9 @@ function setupDynamicContentObserver(
       return;
     }
 
-    // 忽略高亮元素相关的变化
-    const isHighlightRelated = mutations.some(m => {
-      const target = m.target;
-
-      // 检查目标元素本身
-      if (target instanceof HTMLElement) {
-        // 高亮元素的变化
-        if (target.classList.contains('vs-search-highlight') ||
-            target.classList.contains('vs-search-current')) {
-          return true;
-        }
-        // 搜索框的变化
-        if (target.closest('.vs-search-box')) {
-          return true;
-        }
-        // 新添加/移除的高亮元素
-        if (m.type === 'childList') {
-          const changedNodes = [...Array.from(m.addedNodes), ...Array.from(m.removedNodes)];
-          const hasHighlight = changedNodes.some(node =>
-            node instanceof HTMLElement &&
-            (node.classList.contains('vs-search-highlight') ||
-             node.classList.contains('vs-search-current') ||
-             !!node.querySelector('.vs-search-highlight, .vs-search-current'))
-          );
-          if (hasHighlight) {
-            return true;
-          }
-        }
-      }
-
-      return false;
-    });
-
-    if (isHighlightRelated || !currentQuery.trim() || !mutationsMayAffectCurrentSearch(mutations)) {
+    if (mutationsAreHighlightRelated(mutations) ||
+      !hasCurrentQuery() ||
+      !mutationsMayAffectCurrentSearch(mutations)) {
       return;
     }
 
@@ -217,20 +226,15 @@ function setupDynamicContentObserver(
 
     observerDebounceTimer = window.setTimeout(() => {
       // 只有在有实际变化时才重新搜索
-      if (currentQuery.trim() && !isNavigating && !isSearching) {
+      if (hasCurrentQuery() && !isNavigating && !isSearching) {
         performSearch(searchBox, searchEngine, highlighter, { preserveIndex: true });
       }
       observerDebounceTimer = null;
-    }, 500);  // 增加防抖时间到 500ms
+    }, DYNAMIC_CONTENT_DEBOUNCE_DELAY);
   });
 
   // 开始监听
-  searchObserver.observe(document.body, {
-    childList: true,
-    subtree: true,
-    characterData: true,
-    characterDataOldValue: true
-  });
+  searchObserver.observe(document.body, SEARCH_OBSERVER_OPTIONS);
 }
 
 /**
@@ -245,12 +249,7 @@ function performSearch(
   // 标记正在搜索
   isSearching = true;
   clearObserverDebounceTimer();
-
-  // 暂停 observer（断开连接）
-  if (searchObserver) {
-    searchObserver.disconnect();
-    searchObserver.takeRecords();
-  }
+  pauseSearchObserver();
 
   try {
     // 先清除旧高亮，再基于干净 DOM 计算 Range。
@@ -291,18 +290,9 @@ function performSearch(
     searchBox.updateResult({ total: 0, currentIndex: 0 });
   } finally {
     // 搜索完成，延迟恢复 observer
-    setTimeout(() => {
+    resumeSearchObserverLater(SEARCH_OBSERVER_RESTORE_DELAY, () => {
       isSearching = false;
-      if (searchObserver) {
-        searchObserver.takeRecords();
-        searchObserver.observe(document.body, {
-          childList: true,
-          subtree: true,
-          characterData: true,
-          characterDataOldValue: true
-        });
-      }
-    }, 100);
+    });
   }
 }
 
@@ -360,12 +350,7 @@ function main(): void {
     // 标记正在导航，暂停 observer
     isNavigating = true;
     clearObserverDebounceTimer();
-
-    // 先暂停 observer
-    if (searchObserver) {
-      searchObserver.disconnect();
-      searchObserver.takeRecords();
-    }
+    pauseSearchObserver();
 
     const nextIndex = direction === 'next' ? navigator.next() : navigator.prev();
 
@@ -377,18 +362,9 @@ function main(): void {
     }
 
     // 导航完成，延迟恢复 observer
-    setTimeout(() => {
+    resumeSearchObserverLater(NAVIGATION_OBSERVER_RESTORE_DELAY, () => {
       isNavigating = false;
-      if (searchObserver) {
-        searchObserver.takeRecords();
-        searchObserver.observe(document.body, {
-          childList: true,
-          subtree: true,
-          characterData: true,
-          characterDataOldValue: true
-        });
-      }
-    }, 500);
+    });
   });
 
   searchBox.setOnClose(() => {

@@ -1,4 +1,5 @@
-import { addDisabledSite, getDisabledSites, isSiteDisabled, normalizeSiteInput, removeDisabledSite } from '../storage.js';
+import { isSiteDisabled, normalizeSiteInput } from '../site-utils.js';
+import { addDisabledSite, getDisabledSites, removeDisabledSite } from '../storage.js';
 
 const input = document.getElementById('siteInput') as HTMLInputElement;
 const addBtn = document.getElementById('addBtn') as HTMLButtonElement;
