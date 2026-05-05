@@ -342,6 +342,11 @@ export class SearchBox {
     this.options[key] = !this.options[key];
     this.updateOptionButtons();
 
+    // 将焦点返回输入框，确保 Enter 键执行导航而非触发按钮
+    if (this.input) {
+      this.input.focus();
+    }
+
     if (this.onOptionChange) {
       this.onOptionChange(this.options);
     }
