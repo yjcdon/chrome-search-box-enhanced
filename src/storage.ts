@@ -1,11 +1,36 @@
 const STORAGE_KEY = 'disabledSites';
 
+// 正则特殊字符（不含 * 和 .，它们有特殊处理）
+const REGEX_SPECIAL_CHARS = /[\^$+|()[\]\\{}]/;
+
+/**
+ * 规范化输入：
+ * - 包含 *：通配符语法，转换为正则（* 变 .*，. 变 \.）
+ * - 包含其他正则特殊字符：直接作为正则规则
+ * - 普通域名：解析为 hostname
+ */
 export function normalizeSiteInput(value: string): string | null {
   const trimmed = value.trim().toLowerCase();
   if (!trimmed) {
     return null;
   }
 
+  // 包含 *：通配符语法，转换为正则
+  if (trimmed.includes('*')) {
+    // 如果还包含其他复杂正则特殊字符，直接返回让用户自己处理
+    if (REGEX_SPECIAL_CHARS.test(trimmed)) {
+      return trimmed;
+    }
+    // 简单通配符：* -> .*，. -> \.
+    return trimmed.replace(/\./g, m => '\\' + m).replace(/\*/g, '.*');
+  }
+
+  // 包含正则特殊字符：直接作为正则规则
+  if (REGEX_SPECIAL_CHARS.test(trimmed)) {
+    return trimmed;
+  }
+
+  // 普通域名：解析为 hostname
   try {
     const url = new URL(trimmed.includes('://') ? trimmed : `https://${trimmed}`);
     if (url.protocol !== 'http:' && url.protocol !== 'https:') {
@@ -69,18 +94,16 @@ export function isSiteDisabled(hostname: string, disabledSites: string[]): boole
     return false;
   }
 
-  // 用 Set 做 O(1) 精确查找
-  const normalizedSet = new Set(
-    disabledSites.map(normalizeSiteInput).filter((site): site is string => !!site)
-  );
+  // disabledSites 已经是规范化后的数据，直接使用
+  const siteSet = new Set(disabledSites);
 
   // 精确匹配
-  if (normalizedSet.has(normalizedHostname)) {
+  if (siteSet.has(normalizedHostname)) {
     return true;
   }
 
-  // 正则匹配（少数情况）
-  for (const site of normalizedSet) {
+  // 正则匹配
+  for (const site of siteSet) {
     try {
       if (new RegExp(site, 'i').test(normalizedHostname)) {
         return true;
