@@ -56,3 +56,9 @@ pnpm build  # Build
 ### License
 
 [MIT License](LICENSE)
+
+### Acknowledgments
+
+- [Claude Code](https://github.com/anthropics/claude-code)
+- [Codex](https://github.com/openai/codex)
+- [Browser Harness](https://github.com/browser-use/browser-harness)
