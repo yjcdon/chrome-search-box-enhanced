@@ -13,10 +13,10 @@ import {
   SEARCH_OBSERVER_OPTIONS,
   SEARCH_OBSERVER_RESTORE_DELAY
 } from '../constants.js';
-import { containsSearchHighlight, isInsideSearchBox, isSearchHighlightElement } from './dom-utils.js';
-import { textMatchesSearchQuery } from '../search-utils.js';
-import { isSiteDisabled } from '../site-utils.js';
-import { getDisabledSites } from '../storage.js';
+import { containsSearchHighlight, isInsideSearchBox, isSearchHighlightElement } from '../utils/dom.js';
+import { textMatchesSearchQuery } from '../utils/search.js';
+import { isSiteDisabled } from '../utils/site.js';
+import { getDisabledSites } from '../utils/storage.js';
 
 // 当前搜索状态
 let currentQuery = '';
