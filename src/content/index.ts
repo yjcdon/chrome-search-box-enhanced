@@ -14,7 +14,7 @@ let searchObserver: MutationObserver | null = null;
 let observerDebounceTimer: number | null = null;
 let isSearching = false; // 搜索过程中暂停 observer
 let isNavigating = false; // 导航过程中暂停 observer
-let isCurrentSiteDisabled = false; // 当前网站是否被禁用
+let currentSiteDisabledState: 'unknown' | 'enabled' | 'disabled' = 'unknown';
 
 function clearObserverDebounceTimer(): void {
   if (observerDebounceTimer !== null) {
@@ -29,15 +29,17 @@ function clearObserverDebounceTimer(): void {
 async function refreshDisabledState(searchBox?: SearchBox, highlighter?: Highlighter): Promise<void> {
   try {
     const sites = await getDisabledSites();
-    isCurrentSiteDisabled = isSiteDisabled(window.location.hostname, sites);
+    currentSiteDisabledState = isSiteDisabled(window.location.hostname, sites)
+      ? 'disabled'
+      : 'enabled';
 
-    if (isCurrentSiteDisabled && searchBox?.isOpen()) {
+    if (currentSiteDisabledState === 'disabled' && searchBox?.isOpen()) {
       searchBox.close();
       highlighter?.clear();
     }
   } catch {
     // 如果 storage API 不可用，默认不禁用
-    isCurrentSiteDisabled = false;
+    currentSiteDisabledState = 'enabled';
   }
 }
 
@@ -135,11 +137,15 @@ function isFindShortcut(event: KeyboardEvent): boolean {
 function installShortcutInterceptor(searchBox: SearchBox): void {
   document.addEventListener('keydown', (event) => {
     // 当前网站被禁用时，不拦截快捷键
-    if (isCurrentSiteDisabled) {
+    if (currentSiteDisabledState === 'disabled') {
       return;
     }
 
     if (isFindShortcut(event)) {
+      if (currentSiteDisabledState === 'unknown') {
+        return;
+      }
+
       event.preventDefault();
       event.stopImmediatePropagation();
       searchBox.open({ preserveSelection: true });
