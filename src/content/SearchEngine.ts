@@ -290,11 +290,6 @@ export class SearchEngine {
           return false;
         }
 
-        // 跳过 contenteditable 区域
-        if (element.isContentEditable) {
-          return false;
-        }
-
         // 跳过扩展自己的搜索框
         if (element.closest('.vs-search-box')) {
           return false;

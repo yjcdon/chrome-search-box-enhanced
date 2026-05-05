@@ -21,6 +21,7 @@ export class SearchBox {
   private isOpenState = false;
   private debounceTimer: number | null = null;
   private abortController: AbortController | null = null;
+  private isComposing = false; // 输入法组合状态
 
   // 拖动状态
   private isDragging = false;
@@ -136,6 +137,10 @@ export class SearchBox {
     // 绑定输入事件
     this.input.addEventListener('input', () => this.handleInput(), { signal });
     this.input.addEventListener('keydown', (e) => this.handleKeyDown(e), { signal });
+
+    // 绑定输入法组合事件，避免在输入法组合过程中搜索
+    this.input.addEventListener('compositionstart', () => { this.isComposing = true; }, { signal });
+    this.input.addEventListener('compositionend', () => { this.isComposing = false; this.handleInput(); }, { signal });
 
     // 绑定拖动事件
     this.dragHandle.addEventListener('mousedown', (e) => this.handleDragStart(e), { signal });
@@ -283,6 +288,11 @@ export class SearchBox {
    * 处理输入事件（带防抖）
    */
   private handleInput(context?: SearchContext): void {
+    // 如果在输入法组合过程中，不执行搜索
+    if (this.isComposing) {
+      return;
+    }
+
     // 清除之前的定时器
     this.clearDebounceTimer();
 
