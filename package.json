@@ -4,7 +4,7 @@
   "description": "Chrome 原生查找增强插件",
   "type": "module",
   "scripts": {
-    "build": "vite build && cp manifest.json dist/ && node scripts/generate-icons.mjs",
+    "build": "vite build --config vite.config.content.ts && vite build --config vite.config.popup.ts && cp manifest.json dist/ && node scripts/generate-icons.mjs",
     "dev": "vite build --watch"
   },
   "devDependencies": {
