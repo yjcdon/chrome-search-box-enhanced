@@ -8,6 +8,7 @@ export class Highlighter {
   private totalMatches = 0; // 实际匹配总数（可能超过 MAX_HIGHLIGHTS）
   private readonly MAX_HIGHLIGHTS = 500; // 最大高亮数量，防止大页面卡顿
   private preservedIndex = 0; // 记录当前索引，用于恢复位置
+  private onClickCallback: ((index: number) => void) | null = null;
 
   /**
    * 高亮匹配范围
@@ -37,6 +38,7 @@ export class Highlighter {
       const mark = document.createElement('mark');
       mark.className = 'vs-search-highlight';
       mark.dataset.index = String(limitedRanges.length - 1 - index); // 反向索引
+      this.bindHighlightClick(mark);
 
       try {
         // 尝试直接包裹（range 在同一个文本节点内）
@@ -67,64 +69,67 @@ export class Highlighter {
   }
 
   /**
-   * 处理跨元素边界的匹配
-   * 使用逐节点包裹策略，避免破坏原有 DOM 结构
+   * 设置高亮点击回调
    */
-  private handleCrossBoundary(range: Range): void {
-    // 获取 range 内的所有文本节点
-    const textNodes: Text[] = [];
-    const walker = document.createTreeWalker(
-      range.commonAncestorContainer,
-      NodeFilter.SHOW_TEXT,
-      {
-        acceptNode: (node: Node) => {
-          // 只接受在 range 内的节点
-          if (range.intersectsNode(node)) {
-            return NodeFilter.FILTER_ACCEPT;
-          }
-          return NodeFilter.FILTER_REJECT;
-        }
-      }
-    );
+  setOnClick(callback: (index: number) => void): void {
+    this.onClickCallback = callback;
+  }
 
-    let node: Text | null;
-    while ((node = walker.nextNode() as Text | null)) {
-      textNodes.push(node);
+  /**
+   * 绑定高亮点击事件
+   */
+  private bindHighlightClick(mark: HTMLElement): void {
+    mark.addEventListener('click', (event) => {
+      event.stopPropagation();
+      const index = parseInt(mark.dataset.index || '-1', 10);
+      if (index < 0 || index >= this.highlights.length) {
+        return;
+      }
+
+      this.setCurrent(index);
+      this.onClickCallback?.(index);
+    });
+  }
+
+  /**
+   * 根据页面位置找到最近的匹配索引
+   */
+  findNearestIndex(position: { x: number; y: number }): number {
+    if (this.highlights.length === 0) {
+      return -1;
     }
 
-    // 为每个文本节点创建包裹
-    textNodes.forEach((textNode, idx) => {
-      const nodeMark = document.createElement('mark');
-      nodeMark.className = 'vs-search-highlight';
+    let nearestIndex = 0;
+    let minDistance = Infinity;
 
-      // 计算该节点在 range 内的范围
-      const startOffset = (idx === 0 && textNode === range.startContainer)
-        ? range.startOffset
-        : 0;
-      const endOffset = (idx === textNodes.length - 1 && textNode === range.endContainer)
-        ? range.endOffset
-        : textNode.length;
+    this.highlights.forEach((el, index) => {
+      const rect = el.getBoundingClientRect();
+      const centerX = rect.left + rect.width / 2;
+      const centerY = rect.top + rect.height / 2;
+      const distance = Math.hypot(centerX - position.x, centerY - position.y);
 
-      // 创建子 range 并包裹
-      const subRange = document.createRange();
-      subRange.setStart(textNode, startOffset);
-      subRange.setEnd(textNode, endOffset);
-
-      try {
-        subRange.surroundContents(nodeMark);
-        this.highlights.push(nodeMark);
-      } catch {
-        // 如果仍然失败，使用 extractContents 作为后备
-        const fragment = subRange.extractContents();
-        nodeMark.appendChild(fragment);
-        subRange.insertNode(nodeMark);
-        this.highlights.push(nodeMark);
+      if (distance < minDistance) {
+        minDistance = distance;
+        nearestIndex = index;
       }
     });
 
-    // 移除原始 mark（它不会被使用）
-    // mark 元素是调用者创建的，但我们没有使用它
-    // 由于我们直接操作 DOM，不需要额外的处理
+    return nearestIndex;
+  }
+
+  /**
+   * 处理跨元素边界的匹配
+   * 用单个 mark 包裹整段 Range，确保跨文本节点的同一次命中只计为一个结果
+   */
+  private handleCrossBoundary(range: Range): void {
+    const mark = document.createElement('mark');
+    mark.className = 'vs-search-highlight';
+    this.bindHighlightClick(mark);
+
+    const fragment = range.extractContents();
+    mark.appendChild(fragment);
+    range.insertNode(mark);
+    this.highlights.push(mark);
   }
 
   /**

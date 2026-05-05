@@ -1,5 +1,16 @@
 import type { SearchOptions, MatchRange } from '../types/index.js';
 
+interface TextSegment {
+  node: Text;
+  start: number;
+  end: number;
+}
+
+interface SearchUnit {
+  text: string;
+  segments: TextSegment[];
+}
+
 /**
  * 搜索引擎
  * 负责在页面文本中查找匹配
@@ -20,29 +31,21 @@ export class SearchEngine {
       // 1. 构建正则表达式
       const pattern = this.buildPattern(query, options);
 
-      // 2. 遍历页面所有文本节点
+      // 2. 遍历页面所有文本节点，并按可连续搜索的区域聚合
       const ranges: Range[] = [];
-      const walker = document.createTreeWalker(
-        document.body,
-        NodeFilter.SHOW_TEXT,
-        (node) => this.shouldSearchNode(node)
-          ? NodeFilter.FILTER_ACCEPT
-          : NodeFilter.FILTER_REJECT
-      );
+      const searchUnits = this.collectSearchUnits();
 
-      // 3. 在每个文本节点中查找匹配
-      let textNode: Text | null;
-      while (textNode = walker.nextNode() as Text | null) {
-        const text = textNode.textContent || '';
-        const matches = this.findMatches(text, pattern);
+      // 3. 在每个搜索区域中查找匹配。聚合后可以匹配被语法高亮拆开的文本节点，如 console + .
+      searchUnits.forEach((unit) => {
+        const matches = this.findMatches(unit.text, pattern);
 
         matches.forEach(match => {
-          const range = document.createRange();
-          range.setStart(textNode!, match.start);
-          range.setEnd(textNode!, match.end);
-          ranges.push(range);
+          const range = this.createRangeFromMatch(unit, match);
+          if (range) {
+            ranges.push(range);
+          }
         });
-      }
+      });
 
       // 按文档位置排序
       return this.sortRangesByDocumentPosition(ranges);
@@ -50,6 +53,144 @@ export class SearchEngine {
       console.error('Search error:', error);
       return [];
     }
+  }
+
+  /**
+   * 收集所有可搜索区域
+   */
+  private collectSearchUnits(): SearchUnit[] {
+    const roots = this.collectSearchRoots(document.body);
+    const units: SearchUnit[] = [];
+
+    roots.forEach((root) => {
+      const unitNodes = new Map<Node, Text[]>();
+      const walker = document.createTreeWalker(
+        root,
+        NodeFilter.SHOW_TEXT,
+        (node) => this.shouldSearchNode(node)
+          ? NodeFilter.FILTER_ACCEPT
+          : NodeFilter.FILTER_REJECT
+      );
+
+      let textNode: Text | null;
+      while ((textNode = walker.nextNode() as Text | null)) {
+        const text = textNode.textContent || '';
+        if (!text) {
+          continue;
+        }
+
+        const unitRoot = this.getSearchUnitRoot(textNode, root);
+        const nodes = unitNodes.get(unitRoot);
+        if (nodes) {
+          nodes.push(textNode);
+        } else {
+          unitNodes.set(unitRoot, [textNode]);
+        }
+      }
+
+      unitNodes.forEach((nodes) => {
+        const segments: TextSegment[] = [];
+        let text = '';
+
+        nodes.forEach((node) => {
+          const nodeText = node.textContent || '';
+          if (!nodeText) {
+            return;
+          }
+
+          const start = text.length;
+          text += nodeText;
+          segments.push({
+            node,
+            start,
+            end: text.length
+          });
+        });
+
+        if (text) {
+          units.push({ text, segments });
+        }
+      });
+    });
+
+    return units;
+  }
+
+  /**
+   * 收集 document body 以及开放的 ShadowRoot
+   */
+  private collectSearchRoots(root: ParentNode): ParentNode[] {
+    const roots: ParentNode[] = [root];
+    const elements = root.querySelectorAll('*');
+
+    elements.forEach((element) => {
+      if (element.shadowRoot) {
+        roots.push(...this.collectSearchRoots(element.shadowRoot));
+      }
+    });
+
+    return roots;
+  }
+
+  /**
+   * 找到文本节点所属的连续搜索区域
+   */
+  private getSearchUnitRoot(textNode: Text, root: Node): Node {
+    const boundaryTags = new Set([
+      'A',
+      'ARTICLE',
+      'ASIDE',
+      'BLOCKQUOTE',
+      'BUTTON',
+      'CAPTION',
+      'CODE',
+      'DD',
+      'DIV',
+      'DT',
+      'FIGCAPTION',
+      'H1',
+      'H2',
+      'H3',
+      'H4',
+      'H5',
+      'H6',
+      'LI',
+      'P',
+      'PRE',
+      'TD',
+      'TH'
+    ]);
+
+    let parent = textNode.parentElement;
+    while (parent && parent !== root) {
+      if (boundaryTags.has(parent.tagName)) {
+        return parent;
+      }
+      parent = parent.parentElement;
+    }
+
+    return root;
+  }
+
+  /**
+   * 将聚合文本中的匹配位置映射回 DOM Range
+   */
+  private createRangeFromMatch(unit: SearchUnit, match: MatchRange): Range | null {
+    const startSegment = unit.segments.find(segment =>
+      match.start >= segment.start && match.start < segment.end
+    );
+    const endSegment = unit.segments.find(segment =>
+      match.end > segment.start && match.end <= segment.end
+    );
+
+    if (!startSegment || !endSegment) {
+      return null;
+    }
+
+    const range = document.createRange();
+    range.setStart(startSegment.node, match.start - startSegment.start);
+    range.setEnd(endSegment.node, match.end - endSegment.start);
+    return range;
   }
 
   /**
@@ -136,8 +277,25 @@ export class SearchEngine {
    */
   private sortRangesByDocumentPosition(ranges: Range[]): Range[] {
     return ranges.sort((a, b) => {
-      const comparison = a.compareBoundaryPoints(Range.START_TO_START, b);
-      return comparison;
+      try {
+        return a.compareBoundaryPoints(Range.START_TO_START, b);
+      } catch {
+        return this.compareRangeRects(a, b);
+      }
     });
+  }
+
+  /**
+   * 不同 DOM root 的 Range 无法直接 compareBoundaryPoints，使用视口位置兜底
+   */
+  private compareRangeRects(a: Range, b: Range): number {
+    const rectA = a.getBoundingClientRect();
+    const rectB = b.getBoundingClientRect();
+
+    if (rectA.top !== rectB.top) {
+      return rectA.top - rectB.top;
+    }
+
+    return rectA.left - rectB.left;
   }
 }

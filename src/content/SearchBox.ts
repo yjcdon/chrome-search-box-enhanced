@@ -1,4 +1,4 @@
-import type { SearchOptions, SearchResult } from '../types/index.js';
+import type { SearchContext, SearchOptions, SearchPosition, SearchResult } from '../types/index.js';
 
 /** 位置存储 key */
 const POSITION_STORAGE_KEY = 'vs-search-box-position';
@@ -58,7 +58,7 @@ export class SearchBox {
   };
 
   // 回调函数
-  private onSearch: ((query: string, options: SearchOptions) => void) | null = null;
+  private onSearch: ((query: string, options: SearchOptions, context?: SearchContext) => void) | null = null;
   private onNavigate: ((direction: 'next' | 'prev') => void) | null = null;
   private onClose: (() => void) | null = null;
   private onOptionChange: ((options: SearchOptions) => void) | null = null;
@@ -294,7 +294,7 @@ export class SearchBox {
   /**
    * 处理输入事件（带防抖）
    */
-  private handleInput(): void {
+  private handleInput(context?: SearchContext): void {
     // 清除之前的定时器
     if (this.debounceTimer !== null) {
       window.clearTimeout(this.debounceTimer);
@@ -303,7 +303,7 @@ export class SearchBox {
     // 设置新的定时器
     this.debounceTimer = window.setTimeout(() => {
       if (this.onSearch && this.input) {
-        this.onSearch(this.input.value, this.options);
+        this.onSearch(this.input.value, this.options, context);
       }
       this.debounceTimer = null;
     }, this.DEBOUNCE_DELAY);
@@ -374,8 +374,80 @@ export class SearchBox {
   /**
    * 设置搜索回调
    */
-  setOnSearch(callback: (query: string, options: SearchOptions) => void): void {
+  setOnSearch(callback: (query: string, options: SearchOptions, context?: SearchContext) => void): void {
     this.onSearch = callback;
+  }
+
+  /**
+   * 获取当前页面选区/光标位置
+   */
+  private getSelectionPosition(): SearchPosition | undefined {
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) {
+      return undefined;
+    }
+
+    const anchorElement = selection.anchorNode instanceof Element
+      ? selection.anchorNode
+      : selection.anchorNode?.parentElement;
+
+    if (anchorElement?.closest('.vs-search-box')) {
+      return undefined;
+    }
+
+    const range = selection.getRangeAt(0).cloneRange();
+    const rect = this.getUsableRangeRect(range) ?? this.getCollapsedRangeRect(range);
+
+    if (!rect) {
+      return undefined;
+    }
+
+    return {
+      x: rect.left + rect.width / 2,
+      y: rect.top + rect.height / 2
+    };
+  }
+
+  /**
+   * 从 Range 中取一个可用矩形
+   */
+  private getUsableRangeRect(range: Range): DOMRect | undefined {
+    const rects = Array.from(range.getClientRects());
+    const rect = rects.find(item => item.width > 0 || item.height > 0);
+    if (rect) {
+      return rect;
+    }
+
+    const boundingRect = range.getBoundingClientRect();
+    if (boundingRect.width > 0 || boundingRect.height > 0) {
+      return boundingRect;
+    }
+
+    return undefined;
+  }
+
+  /**
+   * 折叠光标没有可见矩形时，取光标附近字符的矩形作为近似位置
+   */
+  private getCollapsedRangeRect(range: Range): DOMRect | undefined {
+    if (!range.collapsed || !(range.startContainer instanceof Text)) {
+      return undefined;
+    }
+
+    const textNode = range.startContainer;
+    if (textNode.length === 0) {
+      return undefined;
+    }
+
+    const probeRange = document.createRange();
+    const start = Math.min(range.startOffset, textNode.length - 1);
+    const end = Math.min(start + 1, textNode.length);
+    probeRange.setStart(textNode, start);
+    probeRange.setEnd(textNode, end);
+
+    const rect = this.getUsableRangeRect(probeRange);
+    probeRange.detach();
+    return rect;
   }
 
   /**
@@ -405,6 +477,8 @@ export class SearchBox {
   open(options: { preserveSelection?: boolean } = {}): void {
     if (!this.container || !this.input) return;
 
+    const initialPosition = this.getSelectionPosition();
+
     this.container.style.display = 'flex';
     this.isOpenState = true;
 
@@ -421,7 +495,7 @@ export class SearchBox {
     this.input.select();
 
     // 触发搜索
-    this.handleInput();
+    this.handleInput({ initialPosition });
   }
 
   /**

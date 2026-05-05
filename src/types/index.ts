@@ -33,6 +33,22 @@ export interface SearchResult {
 }
 
 /**
+ * 页面中的坐标位置（视口坐标）
+ */
+export interface SearchPosition {
+  x: number;
+  y: number;
+}
+
+/**
+ * 搜索请求上下文
+ */
+export interface SearchContext {
+  /** 初始定位位置，用于从光标/选区附近的匹配项开始 */
+  initialPosition?: SearchPosition;
+}
+
+/**
  * 搜索框状态
  */
 export interface SearchBoxState {

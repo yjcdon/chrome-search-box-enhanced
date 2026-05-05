@@ -4,7 +4,7 @@ import { SearchBox } from './SearchBox.js';
 import { SearchEngine } from './SearchEngine.js';
 import { Highlighter } from './Highlighter.js';
 import { Navigator } from './Navigator.js';
-import type { SearchOptions } from '../types/index.js';
+import type { SearchContext, SearchOptions } from '../types/index.js';
 
 // 当前搜索状态
 let currentQuery = '';
@@ -190,7 +190,7 @@ function performSearch(
   searchBox: SearchBox,
   searchEngine: SearchEngine,
   highlighter: Highlighter,
-  options: { preserveIndex?: boolean } = {}
+  options: { preserveIndex?: boolean; initialPosition?: SearchContext['initialPosition'] } = {}
 ): void {
   // 标记正在搜索
   isSearching = true;
@@ -210,6 +210,13 @@ function performSearch(
   // 执行搜索（highlight 内部会处理清除和位置恢复）
   const ranges = searchEngine.search(currentQuery, currentOptions);
   highlighter.highlight(ranges, { preserveIndex });
+
+  if (options.initialPosition && highlighter.getCount() > 0) {
+    const nearestIndex = highlighter.findNearestIndex(options.initialPosition);
+    if (nearestIndex !== -1) {
+      highlighter.setCurrent(nearestIndex);
+    }
+  }
 
   const total = highlighter.getCount();
   const totalMatches = highlighter.getTotalMatches();
@@ -254,11 +261,19 @@ function main(): void {
   const navigator = new Navigator(highlighter);
   const searchBox = new SearchBox();
 
+  highlighter.setOnClick((index: number) => {
+    searchBox.updateResult({
+      total: highlighter.getCount(),
+      currentIndex: index,
+      totalMatches: highlighter.getTotalMatches()
+    });
+  });
+
   // 设置动态内容监听
   setupDynamicContentObserver(searchBox, searchEngine, highlighter);
 
   // 配置搜索框回调
-  searchBox.setOnSearch((query: string, options: SearchOptions) => {
+  searchBox.setOnSearch((query: string, options: SearchOptions, context?: SearchContext) => {
     // 保存当前搜索状态
     currentQuery = query;
     currentOptions = options;
@@ -271,7 +286,9 @@ function main(): void {
     }
 
     // 使用统一的搜索函数
-    performSearch(searchBox, searchEngine, highlighter);
+    performSearch(searchBox, searchEngine, highlighter, {
+      initialPosition: context?.initialPosition
+    });
   });
 
   searchBox.setOnNavigate((direction: 'next' | 'prev') => {
