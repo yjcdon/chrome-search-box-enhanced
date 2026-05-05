@@ -1,6 +1,6 @@
 {
   "name": "chrome-search-box-enhanced",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Chrome 原生查找增强插件",
   "type": "module",
   "scripts": {
