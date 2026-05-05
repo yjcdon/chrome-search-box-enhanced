@@ -15,7 +15,8 @@ import {
 } from '../constants.js';
 import { containsSearchHighlight, isInsideSearchBox, isSearchHighlightElement } from './dom-utils.js';
 import { textMatchesSearchQuery } from '../search-utils.js';
-import { getDisabledSites, isSiteDisabled } from '../storage.js';
+import { isSiteDisabled } from '../site-utils.js';
+import { getDisabledSites } from '../storage.js';
 
 // 当前搜索状态
 let currentQuery = '';
@@ -31,6 +32,31 @@ function clearObserverDebounceTimer(): void {
     window.clearTimeout(observerDebounceTimer);
     observerDebounceTimer = null;
   }
+}
+
+function hasCurrentQuery(): boolean {
+  return currentQuery.trim().length > 0;
+}
+
+function pauseSearchObserver(): void {
+  if (searchObserver) {
+    searchObserver.disconnect();
+    searchObserver.takeRecords();
+  }
+}
+
+function resumeSearchObserver(): void {
+  if (searchObserver) {
+    searchObserver.takeRecords();
+    searchObserver.observe(document.body, SEARCH_OBSERVER_OPTIONS);
+  }
+}
+
+function resumeSearchObserverLater(delay: number, beforeResume: () => void): void {
+  setTimeout(() => {
+    beforeResume();
+    resumeSearchObserver();
+  }, delay);
 }
 
 /**
@@ -91,6 +117,34 @@ function mutationsMayAffectCurrentSearch(mutations: MutationRecord[]): boolean {
     const changedNodes = [...Array.from(mutation.addedNodes), ...Array.from(mutation.removedNodes)];
     return changedNodes.some(nodeTextMatchesCurrentQuery);
   });
+}
+
+function getChangedNodes(mutation: MutationRecord): Node[] {
+  return [...Array.from(mutation.addedNodes), ...Array.from(mutation.removedNodes)];
+}
+
+function mutationIsHighlightRelated(mutation: MutationRecord): boolean {
+  const target = mutation.target;
+
+  if (!(target instanceof HTMLElement)) {
+    return false;
+  }
+
+  if (isSearchHighlightElement(target) || isInsideSearchBox(target)) {
+    return true;
+  }
+
+  if (mutation.type !== 'childList') {
+    return false;
+  }
+
+  return getChangedNodes(mutation).some(node =>
+    node instanceof HTMLElement && containsSearchHighlight(node)
+  );
+}
+
+function mutationsAreHighlightRelated(mutations: MutationRecord[]): boolean {
+  return mutations.some(mutationIsHighlightRelated);
 }
 
 /**
@@ -161,37 +215,9 @@ function setupDynamicContentObserver(
       return;
     }
 
-    // 忽略高亮元素相关的变化
-    const isHighlightRelated = mutations.some(m => {
-      const target = m.target;
-
-      // 检查目标元素本身
-      if (target instanceof HTMLElement) {
-        // 高亮元素的变化
-        if (isSearchHighlightElement(target)) {
-          return true;
-        }
-        // 搜索框的变化
-        if (isInsideSearchBox(target)) {
-          return true;
-        }
-        // 新添加/移除的高亮元素
-        if (m.type === 'childList') {
-          const changedNodes = [...Array.from(m.addedNodes), ...Array.from(m.removedNodes)];
-          const hasHighlight = changedNodes.some(node =>
-            node instanceof HTMLElement &&
-            containsSearchHighlight(node)
-          );
-          if (hasHighlight) {
-            return true;
-          }
-        }
-      }
-
-      return false;
-    });
-
-    if (isHighlightRelated || !currentQuery.trim() || !mutationsMayAffectCurrentSearch(mutations)) {
+    if (mutationsAreHighlightRelated(mutations) ||
+      !hasCurrentQuery() ||
+      !mutationsMayAffectCurrentSearch(mutations)) {
       return;
     }
 
@@ -200,7 +226,7 @@ function setupDynamicContentObserver(
 
     observerDebounceTimer = window.setTimeout(() => {
       // 只有在有实际变化时才重新搜索
-      if (currentQuery.trim() && !isNavigating && !isSearching) {
+      if (hasCurrentQuery() && !isNavigating && !isSearching) {
         performSearch(searchBox, searchEngine, highlighter, { preserveIndex: true });
       }
       observerDebounceTimer = null;
@@ -223,12 +249,7 @@ function performSearch(
   // 标记正在搜索
   isSearching = true;
   clearObserverDebounceTimer();
-
-  // 暂停 observer（断开连接）
-  if (searchObserver) {
-    searchObserver.disconnect();
-    searchObserver.takeRecords();
-  }
+  pauseSearchObserver();
 
   try {
     // 先清除旧高亮，再基于干净 DOM 计算 Range。
@@ -269,13 +290,9 @@ function performSearch(
     searchBox.updateResult({ total: 0, currentIndex: 0 });
   } finally {
     // 搜索完成，延迟恢复 observer
-    setTimeout(() => {
+    resumeSearchObserverLater(SEARCH_OBSERVER_RESTORE_DELAY, () => {
       isSearching = false;
-      if (searchObserver) {
-        searchObserver.takeRecords();
-        searchObserver.observe(document.body, SEARCH_OBSERVER_OPTIONS);
-      }
-    }, SEARCH_OBSERVER_RESTORE_DELAY);
+    });
   }
 }
 
@@ -333,12 +350,7 @@ function main(): void {
     // 标记正在导航，暂停 observer
     isNavigating = true;
     clearObserverDebounceTimer();
-
-    // 先暂停 observer
-    if (searchObserver) {
-      searchObserver.disconnect();
-      searchObserver.takeRecords();
-    }
+    pauseSearchObserver();
 
     const nextIndex = direction === 'next' ? navigator.next() : navigator.prev();
 
@@ -350,13 +362,9 @@ function main(): void {
     }
 
     // 导航完成，延迟恢复 observer
-    setTimeout(() => {
+    resumeSearchObserverLater(NAVIGATION_OBSERVER_RESTORE_DELAY, () => {
       isNavigating = false;
-      if (searchObserver) {
-        searchObserver.takeRecords();
-        searchObserver.observe(document.body, SEARCH_OBSERVER_OPTIONS);
-      }
-    }, NAVIGATION_OBSERVER_RESTORE_DELAY);
+    });
   });
 
   searchBox.setOnClose(() => {

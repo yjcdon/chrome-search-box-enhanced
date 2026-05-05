@@ -1,4 +1,4 @@
-import type { SearchContext, SearchOptions, SearchPosition, SearchResult } from '../types/index.js';
+import type { SearchContext, SearchOptions, SearchResult } from '../types/index.js';
 import {
   POSITION_STORAGE_KEY,
   DEFAULT_POSITION,
@@ -11,6 +11,7 @@ import {
   getOptionKeyHint,
   DEBOUNCE_DELAY
 } from '../constants.js';
+import { getSelectionPosition } from './selection-utils.js';
 
 /**
  * 搜索框组件
@@ -378,114 +379,6 @@ export class SearchBox {
   }
 
   /**
-   * 获取当前页面选区/光标位置
-   */
-  private getSelectionPosition(): SearchPosition | undefined {
-    const selection = window.getSelection();
-    if (!selection || selection.rangeCount === 0) {
-      return undefined;
-    }
-
-    const anchorElement = selection.anchorNode instanceof Element
-      ? selection.anchorNode
-      : selection.anchorNode?.parentElement;
-
-    if (anchorElement?.closest(SEARCH_BOX_SELECTOR)) {
-      return undefined;
-    }
-
-    const range = selection.getRangeAt(0).cloneRange();
-    const rect = this.getUsableRangeRect(range) ?? this.getCollapsedRangeRect(range);
-
-    if (!rect) {
-      return undefined;
-    }
-
-    return {
-      x: rect.left + rect.width / 2,
-      y: rect.top + rect.height / 2
-    };
-  }
-
-  /**
-   * 从 Range 中取一个可用矩形
-   */
-  private getUsableRangeRect(range: Range): DOMRect | undefined {
-    const rects = Array.from(range.getClientRects());
-    const rect = rects.find(item => item.width > 0 || item.height > 0);
-    if (rect) {
-      return rect;
-    }
-
-    const boundingRect = range.getBoundingClientRect();
-    if (boundingRect.width > 0 || boundingRect.height > 0) {
-      return boundingRect;
-    }
-
-    return undefined;
-  }
-
-  /**
-   * 折叠光标没有可见矩形时，取光标附近字符的矩形作为近似位置
-   */
-  private getCollapsedRangeRect(range: Range): DOMRect | undefined {
-    if (!range.collapsed) {
-      return undefined;
-    }
-
-    // 如果 startContainer 是元素，获取 startOffset 位置的子元素
-    if (range.startContainer instanceof Element) {
-      const container = range.startContainer;
-      const childIndex = range.startOffset;
-
-      // 尝试获取 startOffset 位置的子元素
-      let targetElement: Element | null = null;
-      if (childIndex < container.children.length) {
-        targetElement = container.children[childIndex];
-      } else if (container.children.length > 0) {
-        // 如果 offset 超出范围，使用最后一个子元素
-        targetElement = container.children[container.children.length - 1];
-      }
-
-      // 如果没有子元素，使用容器本身
-      if (!targetElement) {
-        targetElement = container;
-      }
-
-      const rect = targetElement.getBoundingClientRect();
-      if (rect.width > 0 || rect.height > 0) {
-        // 返回元素中心点作为近似位置
-        return new DOMRect(
-          rect.left + rect.width / 2 - 1,
-          rect.top + rect.height / 2 - 1,
-          2,
-          2
-        );
-      }
-      return undefined;
-    }
-
-    if (!(range.startContainer instanceof Text)) {
-      return undefined;
-    }
-
-    const textNode = range.startContainer;
-    if (textNode.length === 0) {
-      return undefined;
-    }
-
-    const probeRange = document.createRange();
-    const start = Math.min(range.startOffset, textNode.length - 1);
-    const end = Math.min(start + 1, textNode.length);
-    probeRange.setStart(textNode, start);
-    probeRange.setEnd(textNode, end);
-
-    const rect = this.getUsableRangeRect(probeRange);
-    probeRange.detach();
-    return rect;
-  }
-
-  /**
    * 设置导航回调
    */
   setOnNavigate(callback: (direction: 'next' | 'prev') => void): void {
@@ -512,7 +405,7 @@ export class SearchBox {
   open(options: { preserveSelection?: boolean } = {}): void {
     if (!this.container || !this.input) return;
 
-    const initialPosition = this.getSelectionPosition();
+    const initialPosition = getSelectionPosition(SEARCH_BOX_SELECTOR);
 
     this.container.style.display = 'flex';
     this.isOpenState = true;
