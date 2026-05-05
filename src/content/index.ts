@@ -80,6 +80,9 @@ function isMainFrame(): boolean {
  * 判断是否是查找快捷键 (Cmd+F / Ctrl+F)
  */
 function isFindShortcut(event: KeyboardEvent): boolean {
+  // 检查 key 是否存在，某些特殊键盘事件可能没有此属性
+  if (!event.key) return false;
+
   const key = event.key.toLowerCase();
   const isMacFind = event.metaKey && !event.ctrlKey && key === 'f';
   const isWindowsOrLinuxFind = event.ctrlKey && !event.metaKey && key === 'f';
