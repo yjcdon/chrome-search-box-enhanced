@@ -35,7 +35,14 @@ Chrome 原生查找的增强版：支持高亮所有匹配、实时计数、从�
 
 ### 安装方法
 
-#### 方式一：加载已解压的扩展程序（开发模式）
+#### 方式一：从 Release 下载（推荐）
+
+1. 从 [Release](https://github.com/yjcdon/chrome-search-box-enhanced/releases) 页面下载打包好的插件压缩包
+2. 打开 Chrome，地址栏输入 `chrome://extensions/`
+3. 打开右上角的「开发者模式」
+4. 将下载好的插件压缩包，拖动到 `chrome://extensions/` 页面中即可
+
+#### 方式二：加载已解压的扩展程序（开发模式）
 
 1. 克隆或下载本项目
    ```bash
@@ -53,7 +60,7 @@ Chrome 原生查找的增强版：支持高亮所有匹配、实时计数、从�
 5. 点击「加载已解压的扩展程序」，选择项目的 `dist` 目录
 6. 安装完成，刷新页面即可使用
 
-#### 方式二：直接加载源码（无需构建）
+#### 方式三：直接加载源码（无需构建）
 
 如果想快速体验，可直接加载源码目录：
 
@@ -118,7 +125,14 @@ An enhanced version of Chrome's native find feature: highlights all matches, sho
 
 ### Installation
 
-#### Method 1: Load Unpacked Extension (Development Mode)
+#### Method 1: Download from Release (Recommended)
+
+1. Download the packaged extension zip from [Release](https://github.com/yjcdon/chrome-search-box-enhanced/releases) page
+2. Open Chrome and enter `chrome://extensions/` in address bar
+3. Enable "Developer mode" (top right toggle)
+4. Drag the downloaded extension zip file into the `chrome://extensions/` page
+
+#### Method 2: Load Unpacked Extension (Development Mode)
 
 1. Clone or download this project
    ```bash
@@ -136,7 +150,7 @@ An enhanced version of Chrome's native find feature: highlights all matches, sho
 5. Click "Load unpacked" and select the `dist` directory
 6. Installation complete, refresh pages to use
 
-#### Method 2: Load Source Directly (No Build)
+#### Method 3: Load Source Directly (No Build)
 
 For quick testing, you can load the source directory directly:
 
