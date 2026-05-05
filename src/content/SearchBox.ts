@@ -2,8 +2,11 @@ import type { SearchContext, SearchOptions, SearchPosition, SearchResult } from 
 import {
   POSITION_STORAGE_KEY,
   DEFAULT_POSITION,
+  DEFAULT_SEARCH_OPTIONS,
   i18n,
   isMac,
+  SEARCH_BOX_CLASS,
+  SEARCH_BOX_SELECTOR,
   getKeySymbol,
   getOptionKeyHint,
   DEBOUNCE_DELAY
@@ -30,11 +33,7 @@ export class SearchBox {
   private containerStartX = 0;
   private containerStartY = 0;
 
-  private options: SearchOptions = {
-    caseSensitive: false,
-    wholeWord: false,
-    regex: false
-  };
+  private options: SearchOptions = { ...DEFAULT_SEARCH_OPTIONS };
 
   // 回调函数
   private onSearch: ((query: string, options: SearchOptions, context?: SearchContext) => void) | null = null;
@@ -56,7 +55,7 @@ export class SearchBox {
 
     // 主容器
     this.container = document.createElement('div');
-    this.container.className = 'vs-search-box';
+    this.container.className = SEARCH_BOX_CLASS;
     this.container.style.display = 'none';
 
     // 拖动手柄
@@ -391,7 +390,7 @@ export class SearchBox {
       ? selection.anchorNode
       : selection.anchorNode?.parentElement;
 
-    if (anchorElement?.closest('.vs-search-box')) {
+    if (anchorElement?.closest(SEARCH_BOX_SELECTOR)) {
       return undefined;
     }
 

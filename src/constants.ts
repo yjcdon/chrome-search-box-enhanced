@@ -2,6 +2,8 @@
  * 全局常量配置
  */
 
+import type { SearchOptions } from './types/index.js';
+
 // ==================== 平台检测 ====================
 
 /** 是否为 macOS */
@@ -56,15 +58,99 @@ export function getOptionKeyHint(letter: string): string {
 
 // ==================== 搜索框配置 ====================
 
+/** 搜索框根元素 class */
+export const SEARCH_BOX_CLASS = 'vs-search-box';
+
+/** 搜索框根元素 selector */
+export const SEARCH_BOX_SELECTOR = `.${SEARCH_BOX_CLASS}`;
+
 /** 位置存储 key */
 export const POSITION_STORAGE_KEY = 'vs-search-box-position';
 
 /** 默认位置 */
 export const DEFAULT_POSITION = { right: 10, top: 10 };
 
+/** 默认搜索选项 */
+export const DEFAULT_SEARCH_OPTIONS: SearchOptions = {
+  caseSensitive: false,
+  wholeWord: false,
+  regex: false
+};
+
 /** 防抖延迟（毫秒） */
 export const DEBOUNCE_DELAY = 150;
+
+/** 动态内容变化后的重新搜索防抖延迟（毫秒） */
+export const DYNAMIC_CONTENT_DEBOUNCE_DELAY = 500;
+
+/** 搜索完成后恢复 MutationObserver 的延迟（毫秒） */
+export const SEARCH_OBSERVER_RESTORE_DELAY = 100;
+
+/** 导航完成后恢复 MutationObserver 的延迟（毫秒） */
+export const NAVIGATION_OBSERVER_RESTORE_DELAY = 500;
+
+/** MutationObserver 通用配置 */
+export const SEARCH_OBSERVER_OPTIONS: MutationObserverInit = {
+  childList: true,
+  subtree: true,
+  characterData: true,
+  characterDataOldValue: true
+};
 
 // ==================== 高亮配置 ====================
 
 export const MAX_HIGHLIGHTS = 1000;
+
+/** 普通高亮 class */
+export const HIGHLIGHT_CLASS = 'vs-search-highlight';
+
+/** 当前高亮 class */
+export const CURRENT_HIGHLIGHT_CLASS = 'vs-search-current';
+
+/** 高亮相关 selector */
+export const HIGHLIGHT_SELECTOR = `.${HIGHLIGHT_CLASS}, .${CURRENT_HIGHLIGHT_CLASS}`;
+
+/** 普通高亮背景色，内联设置用于兼容 Shadow DOM */
+export const HIGHLIGHT_BACKGROUND_COLOR = '#ffd700';
+
+/** 当前高亮背景色，内联设置用于兼容 Shadow DOM */
+export const CURRENT_HIGHLIGHT_BACKGROUND_COLOR = '#ff9632';
+
+/** 高亮文本色，内联设置用于兼容 Shadow DOM */
+export const HIGHLIGHT_TEXT_COLOR = '#000000';
+
+// ==================== 搜索配置 ====================
+
+/** 搜索时跳过的元素标签 */
+export const SKIPPED_SEARCH_TAGS = ['SCRIPT', 'STYLE', 'TEXTAREA', 'INPUT', 'SELECT'];
+
+/** 文本节点聚合时作为边界的元素标签 */
+export const SEARCH_UNIT_BOUNDARY_TAGS = [
+  'A',
+  'ARTICLE',
+  'ASIDE',
+  'BLOCKQUOTE',
+  'BUTTON',
+  'CAPTION',
+  'CODE',
+  'DD',
+  'DIV',
+  'DT',
+  'FIGCAPTION',
+  'H1',
+  'H2',
+  'H3',
+  'H4',
+  'H5',
+  'H6',
+  'LI',
+  'P',
+  'PRE',
+  'TD',
+  'TH'
+];
+
+// ==================== Storage 配置 ====================
+
+/** 禁用网站 storage key */
+export const DISABLED_SITES_STORAGE_KEY = 'disabledSites';

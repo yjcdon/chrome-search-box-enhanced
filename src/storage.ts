@@ -1,4 +1,4 @@
-const STORAGE_KEY = 'disabledSites';
+import { DISABLED_SITES_STORAGE_KEY } from './constants.js';
 
 const REGEX_SPECIAL_CHARS = /[\^$+|()[\]\\{}]/;
 
@@ -48,7 +48,7 @@ function toMatchPattern(storedValue: string): string {
 }
 
 export async function getDisabledSites(): Promise<string[]> {
-  const { [STORAGE_KEY]: value } = await chrome.storage.local.get(STORAGE_KEY);
+  const { [DISABLED_SITES_STORAGE_KEY]: value } = await chrome.storage.local.get(DISABLED_SITES_STORAGE_KEY);
   if (!Array.isArray(value)) return [];
 
   return Array.from(new Set(
@@ -62,7 +62,7 @@ export async function setDisabledSites(sites: string[]): Promise<void> {
   const normalized = Array.from(new Set(
     sites.map(normalizeSiteInput).filter(Boolean) as string[]
   ));
-  await chrome.storage.local.set({ [STORAGE_KEY]: normalized });
+  await chrome.storage.local.set({ [DISABLED_SITES_STORAGE_KEY]: normalized });
 }
 
 export async function addDisabledSite(site: string): Promise<void> {

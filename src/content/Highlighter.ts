@@ -1,4 +1,11 @@
-import { MAX_HIGHLIGHTS } from '../constants.js';
+import {
+  CURRENT_HIGHLIGHT_BACKGROUND_COLOR,
+  CURRENT_HIGHLIGHT_CLASS,
+  HIGHLIGHT_BACKGROUND_COLOR,
+  HIGHLIGHT_CLASS,
+  HIGHLIGHT_TEXT_COLOR,
+  MAX_HIGHLIGHTS
+} from '../constants.js';
 
 /**
  * 高亮管理器
@@ -35,16 +42,7 @@ export class Highlighter {
     const sortedRanges = [...limitedRanges].sort((a, b) => this.compareRangesDescending(a, b));
 
     sortedRanges.forEach((range) => {
-      const mark = document.createElement('mark');
-      mark.className = 'vs-search-highlight';
-      // 直接设置样式，确保在 Shadow DOM 中也能正确显示
-      mark.style.backgroundColor = '#ffd700';
-      mark.style.color = '#000000';
-      // 强制行内显示，防止被父元素布局影响
-      mark.style.display = 'inline';
-      mark.style.padding = '0';
-      mark.style.margin = '0';
-      this.bindHighlightClick(mark);
+      const mark = this.createHighlightElement();
 
       try {
         // 尝试直接包裹（range 在同一个文本节点内）
@@ -179,16 +177,7 @@ export class Highlighter {
     // 从后往前包裹，避免前面的文本节点拆分影响后续 Range。
     for (let i = textParts.length - 1; i >= 0; i--) {
       const part = textParts[i];
-      const mark = document.createElement('mark');
-      mark.className = 'vs-search-highlight';
-      // 直接设置样式，确保在 Shadow DOM 中也能正确显示
-      mark.style.backgroundColor = '#ffd700';
-      mark.style.color = '#000000';
-      // 强制行内显示，防止被父元素布局影响
-      mark.style.display = 'inline';
-      mark.style.padding = '0';
-      mark.style.margin = '0';
-      this.bindHighlightClick(mark);
+      const mark = this.createHighlightElement();
 
       const partRange = document.createRange();
       partRange.setStart(part.node, part.start);
@@ -298,6 +287,21 @@ export class Highlighter {
   }
 
   /**
+   * 创建高亮元素。样式需要内联，确保 Shadow DOM 内也能显示。
+   */
+  private createHighlightElement(): HTMLElement {
+    const mark = document.createElement('mark');
+    mark.className = HIGHLIGHT_CLASS;
+    mark.style.backgroundColor = HIGHLIGHT_BACKGROUND_COLOR;
+    mark.style.color = HIGHLIGHT_TEXT_COLOR;
+    mark.style.display = 'inline';
+    mark.style.padding = '0';
+    mark.style.margin = '0';
+    this.bindHighlightClick(mark);
+    return mark;
+  }
+
+  /**
    * 设置当前高亮项
    * @param index 索引
    */
@@ -310,8 +314,8 @@ export class Highlighter {
     // 移除旧当前项样式，恢复黄色背景
     this.highlights.forEach(group => {
       group.forEach(h => {
-        h.classList.remove('vs-search-current');
-        h.style.backgroundColor = '#ffd700';
+        h.classList.remove(CURRENT_HIGHLIGHT_CLASS);
+        h.style.backgroundColor = HIGHLIGHT_BACKGROUND_COLOR;
       });
     });
 
@@ -320,8 +324,8 @@ export class Highlighter {
     const current = this.highlights[index];
     if (current) {
       current.forEach(h => {
-        h.classList.add('vs-search-current');
-        h.style.backgroundColor = '#ff9632';
+        h.classList.add(CURRENT_HIGHLIGHT_CLASS);
+        h.style.backgroundColor = CURRENT_HIGHLIGHT_BACKGROUND_COLOR;
       });
     }
   }

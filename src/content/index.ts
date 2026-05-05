@@ -5,11 +5,21 @@ import { SearchEngine } from './SearchEngine.js';
 import { Highlighter } from './Highlighter.js';
 import { Navigator } from './Navigator.js';
 import type { SearchContext, SearchOptions } from '../types/index.js';
+import {
+  DEFAULT_SEARCH_OPTIONS,
+  DISABLED_SITES_STORAGE_KEY,
+  DYNAMIC_CONTENT_DEBOUNCE_DELAY,
+  NAVIGATION_OBSERVER_RESTORE_DELAY,
+  SEARCH_OBSERVER_OPTIONS,
+  SEARCH_OBSERVER_RESTORE_DELAY
+} from '../constants.js';
+import { containsSearchHighlight, isInsideSearchBox, isSearchHighlightElement } from './dom-utils.js';
+import { textMatchesSearchQuery } from '../search-utils.js';
 import { getDisabledSites, isSiteDisabled } from '../storage.js';
 
 // 当前搜索状态
 let currentQuery = '';
-let currentOptions: SearchOptions = { caseSensitive: false, wholeWord: false, regex: false };
+let currentOptions: SearchOptions = { ...DEFAULT_SEARCH_OPTIONS };
 let searchObserver: MutationObserver | null = null;
 let observerDebounceTimer: number | null = null;
 let isSearching = false; // 搜索过程中暂停 observer
@@ -49,7 +59,7 @@ async function refreshDisabledState(searchBox?: SearchBox, highlighter?: Highlig
 function watchDisabledSites(searchBox: SearchBox, highlighter: Highlighter): void {
   try {
     chrome.storage.onChanged.addListener((changes, areaName) => {
-      if (areaName !== 'local' || !changes.disabledSites) {
+      if (areaName !== 'local' || !changes[DISABLED_SITES_STORAGE_KEY]) {
         return;
       }
       void refreshDisabledState(searchBox, highlighter);
@@ -59,32 +69,8 @@ function watchDisabledSites(searchBox: SearchBox, highlighter: Highlighter): voi
   }
 }
 
-function escapeRegExp(text: string): string {
-  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
 function textMatchesCurrentQuery(text: string | null): boolean {
-  const query = currentQuery.trim();
-  if (!query || !text) {
-    return false;
-  }
-
-  try {
-    if (currentOptions.regex || currentOptions.wholeWord) {
-      const source = currentOptions.regex ? query : escapeRegExp(query);
-      const pattern = currentOptions.wholeWord ? `\\b${source}\\b` : source;
-      const flags = currentOptions.caseSensitive ? '' : 'i';
-      return new RegExp(pattern, flags).test(text);
-    }
-
-    if (currentOptions.caseSensitive) {
-      return text.includes(query);
-    }
-
-    return text.toLowerCase().includes(query.toLowerCase());
-  } catch {
-    return false;
-  }
+  return textMatchesSearchQuery(text, currentQuery, currentOptions);
 }
 
 function nodeTextMatchesCurrentQuery(node: Node): boolean {
@@ -182,12 +168,11 @@ function setupDynamicContentObserver(
       // 检查目标元素本身
       if (target instanceof HTMLElement) {
         // 高亮元素的变化
-        if (target.classList.contains('vs-search-highlight') ||
-            target.classList.contains('vs-search-current')) {
+        if (isSearchHighlightElement(target)) {
           return true;
         }
         // 搜索框的变化
-        if (target.closest('.vs-search-box')) {
+        if (isInsideSearchBox(target)) {
           return true;
         }
         // 新添加/移除的高亮元素
@@ -195,9 +180,7 @@ function setupDynamicContentObserver(
           const changedNodes = [...Array.from(m.addedNodes), ...Array.from(m.removedNodes)];
           const hasHighlight = changedNodes.some(node =>
             node instanceof HTMLElement &&
-            (node.classList.contains('vs-search-highlight') ||
-             node.classList.contains('vs-search-current') ||
-             !!node.querySelector('.vs-search-highlight, .vs-search-current'))
+            containsSearchHighlight(node)
           );
           if (hasHighlight) {
             return true;
@@ -221,16 +204,11 @@ function setupDynamicContentObserver(
         performSearch(searchBox, searchEngine, highlighter, { preserveIndex: true });
       }
       observerDebounceTimer = null;
-    }, 500);  // 增加防抖时间到 500ms
+    }, DYNAMIC_CONTENT_DEBOUNCE_DELAY);
   });
 
   // 开始监听
-  searchObserver.observe(document.body, {
-    childList: true,
-    subtree: true,
-    characterData: true,
-    characterDataOldValue: true
-  });
+  searchObserver.observe(document.body, SEARCH_OBSERVER_OPTIONS);
 }
 
 /**
@@ -295,14 +273,9 @@ function performSearch(
       isSearching = false;
       if (searchObserver) {
         searchObserver.takeRecords();
-        searchObserver.observe(document.body, {
-          childList: true,
-          subtree: true,
-          characterData: true,
-          characterDataOldValue: true
-        });
+        searchObserver.observe(document.body, SEARCH_OBSERVER_OPTIONS);
       }
-    }, 100);
+    }, SEARCH_OBSERVER_RESTORE_DELAY);
   }
 }
 
@@ -381,14 +354,9 @@ function main(): void {
       isNavigating = false;
       if (searchObserver) {
         searchObserver.takeRecords();
-        searchObserver.observe(document.body, {
-          childList: true,
-          subtree: true,
-          characterData: true,
-          characterDataOldValue: true
-        });
+        searchObserver.observe(document.body, SEARCH_OBSERVER_OPTIONS);
       }
-    }, 500);
+    }, NAVIGATION_OBSERVER_RESTORE_DELAY);
   });
 
   searchBox.setOnClose(() => {
