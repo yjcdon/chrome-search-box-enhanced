@@ -420,7 +420,43 @@ export class SearchBox {
    * 折叠光标没有可见矩形时，取光标附近字符的矩形作为近似位置
    */
   private getCollapsedRangeRect(range: Range): DOMRect | undefined {
-    if (!range.collapsed || !(range.startContainer instanceof Text)) {
+    if (!range.collapsed) {
+      return undefined;
+    }
+
+    // 如果 startContainer 是元素，获取 startOffset 位置的子元素
+    if (range.startContainer instanceof Element) {
+      const container = range.startContainer;
+      const childIndex = range.startOffset;
+
+      // 尝试获取 startOffset 位置的子元素
+      let targetElement: Element | null = null;
+      if (childIndex < container.children.length) {
+        targetElement = container.children[childIndex];
+      } else if (container.children.length > 0) {
+        // 如果 offset 超出范围，使用最后一个子元素
+        targetElement = container.children[container.children.length - 1];
+      }
+
+      // 如果没有子元素，使用容器本身
+      if (!targetElement) {
+        targetElement = container;
+      }
+
+      const rect = targetElement.getBoundingClientRect();
+      if (rect.width > 0 || rect.height > 0) {
+        // 返回元素中心点作为近似位置
+        return new DOMRect(
+          rect.left + rect.width / 2 - 1,
+          rect.top + rect.height / 2 - 1,
+          2,
+          2
+        );
+      }
+      return undefined;
+    }
+
+    if (!(range.startContainer instanceof Text)) {
       return undefined;
     }
 

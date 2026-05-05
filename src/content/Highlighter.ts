@@ -14,8 +14,9 @@ export class Highlighter {
   /**
    * 高亮匹配范围
    * @param ranges 匹配范围数组
+   * @param options 选项，包括是否跳过自动设置当前项（用于从光标位置搜索场景）
    */
-  highlight(ranges: Range[], options: { preserveIndex?: number } = {}): void {
+  highlight(ranges: Range[], options: { preserveIndex?: number; skipSetCurrent?: boolean } = {}): void {
     const preserveIndex = options.preserveIndex ?? this.currentIndex;
     // 先清除旧高亮
     this.clear();
@@ -36,6 +37,13 @@ export class Highlighter {
     sortedRanges.forEach((range) => {
       const mark = document.createElement('mark');
       mark.className = 'vs-search-highlight';
+      // 直接设置样式，确保在 Shadow DOM 中也能正确显示
+      mark.style.backgroundColor = '#ffd700';
+      mark.style.color = '#000000';
+      // 强制行内显示，防止被父元素布局影响
+      mark.style.display = 'inline';
+      mark.style.padding = '0';
+      mark.style.margin = '0';
       this.bindHighlightClick(mark);
 
       try {
@@ -52,6 +60,11 @@ export class Highlighter {
 
     // 按文档位置重新排序
     this.sortHighlightsByDocumentPosition();
+
+    // 如果调用方要求跳过自动设置当前项（如从光标位置搜索），则直接返回
+    if (options.skipSetCurrent) {
+      return;
+    }
 
     // 尝试恢复之前的索引（保持在相近的位置）
     let newIndex = 0;
@@ -102,20 +115,40 @@ export class Highlighter {
     let minDistance = Infinity;
 
     this.highlights.forEach((group, index) => {
-      const distance = group.reduce((minDistance, el) => {
-        const rect = el.getBoundingClientRect();
+      // 跳过空组
+      if (!group || group.length === 0) {
+        return;
+      }
+      const distance = group.reduce((minDist, el) => {
+        // 确保元素在 DOM 中
+        if (!el.isConnected) {
+          return minDist;
+        }
+        let rect = el.getBoundingClientRect();
+        // 如果 getBoundingClientRect 返回空，尝试使用父元素位置（处理 Shadow DOM 情况）
+        if (rect.width === 0 && rect.height === 0) {
+          let parent = el.parentElement;
+          while (parent && rect.width === 0 && rect.height === 0) {
+            rect = parent.getBoundingClientRect();
+            parent = parent.parentElement;
+          }
+        }
+        // 仍然为空，跳过
+        if (rect.width === 0 && rect.height === 0) {
+          return minDist;
+        }
         const centerX = rect.left + rect.width / 2;
         const centerY = rect.top + rect.height / 2;
-        return Math.min(minDistance, Math.hypot(centerX - position.x, centerY - position.y));
+        return Math.min(minDist, Math.hypot(centerX - position.x, centerY - position.y));
       }, Infinity);
 
-      if (distance < minDistance) {
+      if (distance < minDistance && distance !== Infinity) {
         minDistance = distance;
         nearestIndex = index;
       }
     });
 
-    return nearestIndex;
+    return minDistance === Infinity ? 0 : nearestIndex;
   }
 
   /**
@@ -148,6 +181,13 @@ export class Highlighter {
       const part = textParts[i];
       const mark = document.createElement('mark');
       mark.className = 'vs-search-highlight';
+      // 直接设置样式，确保在 Shadow DOM 中也能正确显示
+      mark.style.backgroundColor = '#ffd700';
+      mark.style.color = '#000000';
+      // 强制行内显示，防止被父元素布局影响
+      mark.style.display = 'inline';
+      mark.style.padding = '0';
+      mark.style.margin = '0';
       this.bindHighlightClick(mark);
 
       const partRange = document.createRange();
@@ -262,19 +302,26 @@ export class Highlighter {
    * @param index 索引
    */
   setCurrent(index: number): void {
-    // 移除旧当前项样式
+    // 确保索引在有效范围内
+    if (index < 0 || index >= this.highlights.length) {
+      index = 0;
+    }
+
+    // 移除旧当前项样式，恢复黄色背景
     this.highlights.forEach(group => {
       group.forEach(h => {
         h.classList.remove('vs-search-current');
+        h.style.backgroundColor = '#ffd700';
       });
     });
 
-    // 设置新当前项
+    // 设置新当前项，使用橙色背景
     this.currentIndex = index;
     const current = this.highlights[index];
     if (current) {
       current.forEach(h => {
         h.classList.add('vs-search-current');
+        h.style.backgroundColor = '#ff9632';
       });
     }
   }

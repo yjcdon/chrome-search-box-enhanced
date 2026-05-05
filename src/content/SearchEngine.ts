@@ -118,6 +118,7 @@ export class SearchEngine {
 
   /**
    * 收集 document body 以及开放的 ShadowRoot
+   * 跳过隐藏元素的 ShadowRoot
    */
   private collectSearchRoots(root: ParentNode): ParentNode[] {
     const roots: ParentNode[] = [root];
@@ -125,11 +126,44 @@ export class SearchEngine {
 
     elements.forEach((element) => {
       if (element.shadowRoot) {
-        roots.push(...this.collectSearchRoots(element.shadowRoot));
+        // 检查宿主元素是否可见
+        if (this.isElementVisible(element)) {
+          roots.push(...this.collectSearchRoots(element.shadowRoot));
+        }
       }
     });
 
     return roots;
+  }
+
+  /**
+   * 检查元素是否可见（不被隐藏）
+   */
+  private isElementVisible(element: Element): boolean {
+    let el: Element | null = element;
+    while (el) {
+      const computedStyle = window.getComputedStyle(el);
+
+      // 跳过 display:none
+      if (computedStyle.display === 'none') {
+        return false;
+      }
+
+      // 跳过 visibility:hidden / collapse
+      if (computedStyle.visibility === 'hidden' ||
+          computedStyle.visibility === 'collapse') {
+        return false;
+      }
+
+      // 跳过 hidden 属性（不检查 aria-hidden，保持和 Chrome 原生查找一致）
+      if ((el as HTMLElement).hidden) {
+        return false;
+      }
+
+      el = el.parentElement;
+    }
+
+    return true;
   }
 
   /**
@@ -266,8 +300,8 @@ export class SearchEngine {
           return false;
         }
 
-        // 跳过隐藏元素
-        if (element.hidden || element.getAttribute('aria-hidden') === 'true') {
+        // 跳过隐藏元素（只检查 hidden 属性，不检查 aria-hidden，保持和 Chrome 原生查找一致）
+        if (element.hidden) {
           return false;
         }
 

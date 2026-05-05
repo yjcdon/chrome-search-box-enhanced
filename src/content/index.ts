@@ -211,14 +211,21 @@ function performSearch(
     const preserveIndex = options.preserveIndex ? highlighter.getCurrentIndex() : 0;
     highlighter.clear();
 
-    // 执行搜索（highlight 内部会处理清除和位置恢复）
+    // 执行搜索
     const ranges = searchEngine.search(currentQuery, currentOptions);
-    highlighter.highlight(ranges, { preserveIndex });
+    const skipSetCurrent = !!options.initialPosition;
+    highlighter.highlight(ranges, { preserveIndex, skipSetCurrent });
 
     if (options.initialPosition && highlighter.getCount() > 0) {
+      // 强制同步布局计算，确保 getBoundingClientRect 返回正确值
+      document.body.offsetHeight;
+
       const nearestIndex = highlighter.findNearestIndex(options.initialPosition);
       if (nearestIndex !== -1) {
         highlighter.setCurrent(nearestIndex);
+      } else {
+        // 兜底：如果找不到最近项，设置为第一个
+        highlighter.setCurrent(0);
       }
     }
 
@@ -228,7 +235,7 @@ function performSearch(
     searchBox.updateResult({ total, currentIndex, totalMatches });
 
     // 滚动到当前匹配
-    if (total > 0) {
+    if (total > 0 && highlighter.getCurrentIndex() >= 0) {
       highlighter.scrollToCurrent();
     }
   } catch (error) {
