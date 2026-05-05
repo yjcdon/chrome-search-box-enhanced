@@ -268,13 +268,21 @@ export class SearchBox {
   }
 
   /**
+   * 清除防抖定时器
+   */
+  private clearDebounceTimer(): void {
+    if (this.debounceTimer !== null) {
+      window.clearTimeout(this.debounceTimer);
+      this.debounceTimer = null;
+    }
+  }
+
+  /**
    * 处理输入事件（带防抖）
    */
   private handleInput(context?: SearchContext): void {
     // 清除之前的定时器
-    if (this.debounceTimer !== null) {
-      window.clearTimeout(this.debounceTimer);
-    }
+    this.clearDebounceTimer();
 
     // 设置新的定时器
     this.debounceTimer = window.setTimeout(() => {
@@ -484,6 +492,9 @@ export class SearchBox {
    */
   close(): void {
     if (!this.container) return;
+
+    // 清除待处理的防抖定时器
+    this.clearDebounceTimer();
 
     this.container.style.display = 'none';
     this.isOpenState = false;

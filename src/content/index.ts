@@ -205,45 +205,51 @@ function performSearch(
     searchObserver.takeRecords();
   }
 
-  // 先清除旧高亮，再基于干净 DOM 计算 Range。
-  // 如果先搜索再清除，Range 会指向即将被移除的 mark 内文本节点，动态页面上会出现闪烁和索引错位。
-  const preserveIndex = options.preserveIndex ? highlighter.getCurrentIndex() : 0;
-  highlighter.clear();
+  try {
+    // 先清除旧高亮，再基于干净 DOM 计算 Range。
+    // 如果先搜索再清除，Range 会指向即将被移除的 mark 内文本节点，动态页面上会出现闪烁和索引错位。
+    const preserveIndex = options.preserveIndex ? highlighter.getCurrentIndex() : 0;
+    highlighter.clear();
 
-  // 执行搜索（highlight 内部会处理清除和位置恢复）
-  const ranges = searchEngine.search(currentQuery, currentOptions);
-  highlighter.highlight(ranges, { preserveIndex });
+    // 执行搜索（highlight 内部会处理清除和位置恢复）
+    const ranges = searchEngine.search(currentQuery, currentOptions);
+    highlighter.highlight(ranges, { preserveIndex });
 
-  if (options.initialPosition && highlighter.getCount() > 0) {
-    const nearestIndex = highlighter.findNearestIndex(options.initialPosition);
-    if (nearestIndex !== -1) {
-      highlighter.setCurrent(nearestIndex);
+    if (options.initialPosition && highlighter.getCount() > 0) {
+      const nearestIndex = highlighter.findNearestIndex(options.initialPosition);
+      if (nearestIndex !== -1) {
+        highlighter.setCurrent(nearestIndex);
+      }
     }
-  }
 
-  const total = highlighter.getCount();
-  const totalMatches = highlighter.getTotalMatches();
-  const currentIndex = total > 0 ? highlighter.getCurrentIndex() : 0;
-  searchBox.updateResult({ total, currentIndex, totalMatches });
+    const total = highlighter.getCount();
+    const totalMatches = highlighter.getTotalMatches();
+    const currentIndex = total > 0 ? highlighter.getCurrentIndex() : 0;
+    searchBox.updateResult({ total, currentIndex, totalMatches });
 
-  // 滚动到当前匹配
-  if (total > 0) {
-    highlighter.scrollToCurrent();
-  }
-
-  // 搜索完成，延迟恢复 observer
-  setTimeout(() => {
-    isSearching = false;
-    if (searchObserver) {
-      searchObserver.takeRecords();
-      searchObserver.observe(document.body, {
-        childList: true,
-        subtree: true,
-        characterData: true,
-        characterDataOldValue: true
-      });
+    // 滚动到当前匹配
+    if (total > 0) {
+      highlighter.scrollToCurrent();
     }
-  }, 100);
+  } catch (error) {
+    console.error('执行搜索错误:', error);
+    highlighter.clear();
+    searchBox.updateResult({ total: 0, currentIndex: 0 });
+  } finally {
+    // 搜索完成，延迟恢复 observer
+    setTimeout(() => {
+      isSearching = false;
+      if (searchObserver) {
+        searchObserver.takeRecords();
+        searchObserver.observe(document.body, {
+          childList: true,
+          subtree: true,
+          characterData: true,
+          characterDataOldValue: true
+        });
+      }
+    }, 100);
+  }
 }
 
 /**
@@ -251,10 +257,8 @@ function performSearch(
  */
 function main(): void {
   // 仅在主 frame 中初始化搜索框
-  // iframe 中不显示搜索框，但保留快捷键拦截以便在 iframe 内也能触发主 frame 搜索
+  // iframe 中有意跳过初始化，仅搜索顶层文档
   if (!isMainFrame()) {
-    // 在 iframe 中，仅转发快捷键到主 frame
-    // 搜索框和搜索逻辑只在主 frame 中运行
     return;
   }
 

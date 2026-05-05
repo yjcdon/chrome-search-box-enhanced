@@ -265,6 +265,19 @@ export class SearchEngine {
         if (element.closest('.vs-search-box')) {
           return false;
         }
+
+        // 跳过隐藏元素
+        if (element.hidden || element.getAttribute('aria-hidden') === 'true') {
+          return false;
+        }
+
+        // 跳过 display:none / visibility:hidden 的元素
+        const style = window.getComputedStyle(element);
+        if (style.display === 'none' ||
+            style.visibility === 'hidden' ||
+            style.visibility === 'collapse') {
+          return false;
+        }
       }
       parent = parent.parentNode;
     }

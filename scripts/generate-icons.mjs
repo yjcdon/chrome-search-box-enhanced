@@ -18,14 +18,15 @@ const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
   </g>
 </svg>`;
 
-sizes.forEach(async (size) => {
-  try {
+try {
+  await Promise.all(sizes.map(async (size) => {
     await sharp(Buffer.from(svg))
       .resize(size, size)
       .png()
       .toFile(join(outDir, `icon${size}.png`));
-    console.log(`Generated icon${size}.png`);
-  } catch (err) {
-    console.error(`Failed to generate icon${size}.png:`, err);
-  }
-});
+    console.log(`生成 icon${size}.png`);
+  }));
+} catch (err) {
+  console.error('生成图标失败:', err);
+  process.exitCode = 1;
+}

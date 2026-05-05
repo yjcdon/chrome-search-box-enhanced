@@ -31,9 +31,7 @@ export class Highlighter {
     const limitedRanges = ranges.slice(0, MAX_HIGHLIGHTS);
 
     // 从后往前处理，避免 DOM 变化影响后续 range
-    const sortedRanges = [...limitedRanges].sort((a, b) => {
-      return b.compareBoundaryPoints(Range.START_TO_START, a);
-    });
+    const sortedRanges = [...limitedRanges].sort((a, b) => this.compareRangesDescending(a, b));
 
     sortedRanges.forEach((range, index) => {
       const mark = document.createElement('mark');
@@ -119,18 +117,64 @@ export class Highlighter {
   }
 
   /**
+   * 安全比较两个 Range（处理不同 DOM root 的情况）
+   */
+  private compareRangesDescending(a: Range, b: Range): number {
+    try {
+      return b.compareBoundaryPoints(Range.START_TO_START, a);
+    } catch {
+      // 不同 DOM root 的 Range 无法直接 compareBoundaryPoints，使用视口位置兜底
+      const rectA = a.getBoundingClientRect();
+      const rectB = b.getBoundingClientRect();
+      if (rectA.top !== rectB.top) {
+        return rectB.top - rectA.top;
+      }
+      return rectB.left - rectA.left;
+    }
+  }
+
+  /**
    * 处理跨元素边界的匹配
-   * 用单个 mark 包裹整段 Range，确保跨文本节点的同一次命中只计为一个结果
+   * 使用 cloneContents + deleteContents + insertNode 方案
+   * 避免 extractContents 部分包含元素时留下空克隆
    */
   private handleCrossBoundary(range: Range): void {
     const mark = document.createElement('mark');
     mark.className = 'vs-search-highlight';
     this.bindHighlightClick(mark);
 
-    const fragment = range.extractContents();
+    // 先克隆内容
+    const fragment = range.cloneContents();
     mark.appendChild(fragment);
+
+    // 记录删除前的父元素
+    const parentElement = range.commonAncestorContainer.parentElement ||
+      (range.commonAncestorContainer.nodeType === Node.ELEMENT_NODE
+        ? range.commonAncestorContainer as Element
+        : null);
+
+    // 删除原内容
+    range.deleteContents();
+
+    // 清理空元素：遍历父元素的所有后代，移除空的内联元素
+    if (parentElement) {
+      this.cleanupEmptyElements(parentElement);
+    }
+
+    // 插入 mark
     range.insertNode(mark);
     this.highlights.push(mark);
+  }
+
+  /**
+   * 清理空的内联元素（deleteContents 可能留下空克隆）
+   */
+  private cleanupEmptyElements(parent: Element): void {
+    // 查找所有可能被部分包含的元素类型
+    const emptySelectors = 'strong:empty, em:empty, span:empty, b:empty, i:empty, a:empty';
+    parent.querySelectorAll(emptySelectors).forEach((el) => {
+      el.remove();
+    });
   }
 
   /**
@@ -217,10 +261,11 @@ export class Highlighter {
       const parent = mark.parentNode;
 
       if (parent) {
-        // 将 mark 的内容替换为文本节点
-        const textContent = mark.textContent || '';
-        const textNode = document.createTextNode(textContent);
-        parent.replaceChild(textNode, mark);
+        // 将 mark 的子节点移回原位置（保留元素节点和属性）
+        while (mark.firstChild) {
+          parent.insertBefore(mark.firstChild, mark);
+        }
+        parent.removeChild(mark);
 
         // 合并相邻文本节点
         parent.normalize();
