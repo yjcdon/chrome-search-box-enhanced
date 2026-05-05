@@ -1,4 +1,4 @@
-import { addDisabledSite, getDisabledSites, normalizeSiteInput, removeDisabledSite } from '../storage.js';
+import { addDisabledSite, getDisabledSites, isSiteDisabled, normalizeSiteInput, removeDisabledSite } from '../storage.js';
 
 const input = document.getElementById('siteInput') as HTMLInputElement;
 const addBtn = document.getElementById('addBtn') as HTMLButtonElement;
@@ -6,6 +6,28 @@ const cancelBtn = document.getElementById('cancelBtn') as HTMLButtonElement;
 const errorMsg = document.getElementById('errorMsg') as HTMLParagraphElement;
 const disabledList = document.getElementById('disabledList') as HTMLUListElement;
 const siteCount = document.getElementById('siteCount') as HTMLSpanElement;
+
+/**
+ * 更新添加按钮状态：根据输入框域名是否已禁用，禁用或启用按钮
+ */
+function updateAddButtonState(inputSite: string, disabledSites: string[]): void {
+  const normalizedSite = normalizeSiteInput(inputSite);
+
+  if (!normalizedSite) {
+    // 输入框为空或无效，按钮正常状态
+    addBtn.disabled = false;
+    addBtn.textContent = '添加禁用';
+    return;
+  }
+
+  if (isSiteDisabled(normalizedSite, disabledSites)) {
+    addBtn.disabled = true;
+    addBtn.textContent = '该网站已禁用';
+  } else {
+    addBtn.disabled = false;
+    addBtn.textContent = '添加禁用';
+  }
+}
 
 function showError(message: string): void {
   errorMsg.textContent = message;
@@ -47,6 +69,9 @@ async function loadDisabledSites(): Promise<void> {
   const sites = await getDisabledSites();
   siteCount.textContent = String(sites.length);
 
+  // 根据输入框当前内容更新按钮状态
+  updateAddButtonState(input.value, sites);
+
   if (sites.length === 0) {
     renderEmptyState();
     return;
@@ -80,8 +105,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     try {
       await addDisabledSite(site);
+      input.value = '';
       await loadDisabledSites();
-      input.value = site;
     } catch {
       showError('添加失败，请重试');
     }
@@ -92,8 +117,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     window.close();
   });
 
-  // 输入框变化时清除错误
-  input.addEventListener('input', () => {
+  // 输入框变化时清除错误并更新按钮状态
+  input.addEventListener('input', async () => {
     clearError();
+    await loadDisabledSites();
   });
 });

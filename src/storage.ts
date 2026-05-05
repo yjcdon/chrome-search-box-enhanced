@@ -65,9 +65,30 @@ export async function removeDisabledSite(site: string): Promise<void> {
 
 export function isSiteDisabled(hostname: string, disabledSites: string[]): boolean {
   const normalizedHostname = normalizeSiteInput(hostname);
-  const normalizedDisabledSites = disabledSites
-    .map(normalizeSiteInput)
-    .filter((site): site is string => !!site);
+  if (!normalizedHostname) {
+    return false;
+  }
 
-  return !!normalizedHostname && normalizedDisabledSites.includes(normalizedHostname);
+  // 用 Set 做 O(1) 精确查找
+  const normalizedSet = new Set(
+    disabledSites.map(normalizeSiteInput).filter((site): site is string => !!site)
+  );
+
+  // 精确匹配
+  if (normalizedSet.has(normalizedHostname)) {
+    return true;
+  }
+
+  // 正则匹配（少数情况）
+  for (const site of normalizedSet) {
+    try {
+      if (new RegExp(site, 'i').test(normalizedHostname)) {
+        return true;
+      }
+    } catch {
+      // 无效正则，跳过
+    }
+  }
+
+  return false;
 }
