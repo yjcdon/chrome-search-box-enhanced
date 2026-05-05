@@ -7,20 +7,22 @@ const errorMsg = document.getElementById('errorMsg') as HTMLParagraphElement;
 const disabledList = document.getElementById('disabledList') as HTMLUListElement;
 const siteCount = document.getElementById('siteCount') as HTMLSpanElement;
 
+// 缓存禁用列表，避免频繁读取 storage
+let cachedDisabledSites: string[] = [];
+
 /**
  * 更新添加按钮状态：根据输入框域名是否已禁用，禁用或启用按钮
  */
-function updateAddButtonState(inputSite: string, disabledSites: string[]): void {
-  const normalizedSite = normalizeSiteInput(inputSite);
+function updateAddButtonState(): void {
+  const normalizedSite = normalizeSiteInput(input.value);
 
   if (!normalizedSite) {
-    // 输入框为空或无效，按钮正常状态
     addBtn.disabled = false;
     addBtn.textContent = '添加禁用';
     return;
   }
 
-  if (isSiteDisabled(normalizedSite, disabledSites)) {
+  if (isSiteDisabled(normalizedSite, cachedDisabledSites)) {
     addBtn.disabled = true;
     addBtn.textContent = '该网站已禁用';
   } else {
@@ -66,18 +68,18 @@ function renderDisabledSite(site: string): HTMLLIElement {
 }
 
 async function loadDisabledSites(): Promise<void> {
-  const sites = await getDisabledSites();
-  siteCount.textContent = String(sites.length);
+  cachedDisabledSites = await getDisabledSites();
+  siteCount.textContent = String(cachedDisabledSites.length);
 
   // 根据输入框当前内容更新按钮状态
-  updateAddButtonState(input.value, sites);
+  updateAddButtonState();
 
-  if (sites.length === 0) {
+  if (cachedDisabledSites.length === 0) {
     renderEmptyState();
     return;
   }
 
-  disabledList.replaceChildren(...sites.map(renderDisabledSite));
+  disabledList.replaceChildren(...cachedDisabledSites.map(renderDisabledSite));
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -118,8 +120,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   // 输入框变化时清除错误并更新按钮状态
-  input.addEventListener('input', async () => {
+  input.addEventListener('input', () => {
     clearError();
-    await loadDisabledSites();
+    updateAddButtonState();
   });
 });
