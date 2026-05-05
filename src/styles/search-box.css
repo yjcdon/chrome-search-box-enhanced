@@ -1,4 +1,57 @@
-/* VSCode 风格搜索框样式 */
+/* Chrome 搜索框增强 - 支持深色/浅色模式 */
+
+/* ==================== 颜色变量定义 ==================== */
+
+/* 浅色模式（默认） */
+:host,
+:root {
+  --vs-bg: #f8f8f8;
+  --vs-border: #e0e0e0;
+  --vs-shadow: rgba(0, 0, 0, 0.15);
+  --vs-text: #333333;
+  --vs-text-secondary: #666666;
+  --vs-input-bg: #ffffff;
+  --vs-input-border: #cccccc;
+  --vs-input-focus-border: #007fd4;
+  --vs-btn-hover: #e8e8e8;
+  --vs-btn-active-bg: #094771;
+  --vs-btn-active-border: #007fd4;
+  --vs-btn-active-text: #ffffff;
+  --vs-handle-color: #999999;
+  --vs-handle-hover-bg: #e0e0e0;
+  --vs-placeholder: #888888;
+  --vs-highlight-bg: #ffd700;
+  --vs-highlight-text: #000000;
+  --vs-current-bg: #ff9632;
+}
+
+/* 深色模式 */
+@media (prefers-color-scheme: dark) {
+  :host,
+  :root {
+    --vs-bg: #3c3c3c;
+    --vs-border: #1e1e1e;
+    --vs-shadow: rgba(0, 0, 0, 0.36);
+    --vs-text: #cccccc;
+    --vs-text-secondary: #808080;
+    --vs-input-bg: #3c3c3c;
+    --vs-input-border: #454545;
+    --vs-input-focus-border: #007fd4;
+    --vs-btn-hover: #4a4a4a;
+    --vs-btn-active-bg: #094771;
+    --vs-btn-active-border: #007fd4;
+    --vs-btn-active-text: #ffffff;
+    --vs-handle-color: #808080;
+    --vs-handle-hover-bg: #4a4a4a;
+    --vs-placeholder: #808080;
+    --vs-highlight-bg: #ffd700;
+    --vs-highlight-text: #000000;
+    --vs-current-bg: #ff9632;
+  }
+}
+
+/* ==================== 搜索框主容器 ==================== */
+
 .vs-search-box {
   position: fixed;
   top: 10px;
@@ -8,14 +61,14 @@
   align-items: center;
   gap: 4px;
   padding: 4px 8px;
-  background-color: #3c3c3c;
-  border: 1px solid #1e1e1e;
+  background-color: var(--vs-bg);
+  border: 1px solid var(--vs-border);
   border-radius: 3px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.36);
+  box-shadow: 0 2px 8px var(--vs-shadow);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
   font-size: 13px;
   line-height: 1.4;
-  color: #cccccc;
+  color: var(--vs-text);
   max-width: 500px;
   min-width: 300px;
 }
@@ -27,7 +80,8 @@
   user-select: none;
 }
 
-/* 拖动手柄 */
+/* ==================== 拖动手柄 ==================== */
+
 .vs-search-drag-handle {
   display: flex;
   align-items: center;
@@ -35,7 +89,7 @@
   width: 16px;
   height: 24px;
   margin-right: 4px;
-  color: #808080;
+  color: var(--vs-handle-color);
   font-size: 10px;
   letter-spacing: -2px;
   cursor: grab;
@@ -45,37 +99,39 @@
 }
 
 .vs-search-drag-handle:hover {
-  background-color: #4a4a4a;
-  color: #cccccc;
+  background-color: var(--vs-handle-hover-bg);
+  color: var(--vs-text);
 }
 
 .vs-search-drag-handle:active {
   cursor: grabbing;
 }
 
-/* 输入框 */
+/* ==================== 输入框 ==================== */
+
 .vs-search-input {
   flex: 1;
   min-width: 120px;
   padding: 4px 8px;
-  background-color: #3c3c3c;
-  border: 1px solid #454545;
+  background-color: var(--vs-input-bg);
+  border: 1px solid var(--vs-input-border);
   border-radius: 2px;
-  color: #cccccc;
+  color: var(--vs-text);
   font-size: 13px;
   outline: none;
   transition: border-color 0.2s;
 }
 
 .vs-search-input:focus {
-  border-color: #007fd4;
+  border-color: var(--vs-input-focus-border);
 }
 
 .vs-search-input::placeholder {
-  color: #808080;
+  color: var(--vs-placeholder);
 }
 
-/* 选项按钮组 */
+/* ==================== 选项按钮 ==================== */
+
 .vs-search-options {
   display: flex;
   gap: 2px;
@@ -86,7 +142,7 @@
   background-color: transparent;
   border: 1px solid transparent;
   border-radius: 2px;
-  color: #cccccc;
+  color: var(--vs-text);
   font-size: 13px;
   font-family: inherit;
   cursor: pointer;
@@ -95,18 +151,18 @@
 }
 
 .vs-search-option-btn:hover {
-  background-color: #4a4a4a;
+  background-color: var(--vs-btn-hover);
 }
 
 .vs-search-option-btn.active {
-  background-color: #094771;
-  border-color: #007fd4;
-  color: #ffffff;
+  background-color: var(--vs-btn-active-bg);
+  border-color: var(--vs-btn-active-border);
+  color: var(--vs-btn-active-text);
 }
 
-/* 全词匹配按钮样式 - 添加边框效果 */
+/* 全词匹配按钮 */
 .vs-search-option-btn.whole-word {
-  border: 1px solid #454545;
+  border: 1px solid var(--vs-input-border);
   border-radius: 3px;
   padding: 2px 5px;
   font-size: 11px;
@@ -114,34 +170,36 @@
 }
 
 .vs-search-option-btn.whole-word:hover {
-  border-color: #cccccc;
+  border-color: var(--vs-text);
 }
 
 .vs-search-option-btn.whole-word.active {
-  border-color: #007fd4;
+  border-color: var(--vs-btn-active-border);
 }
 
-/* 正则表达式按钮样式 */
+/* 正则表达式按钮 */
 .vs-search-option-btn.regex {
   font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
   font-size: 12px;
 }
 
-/* 结果计数 */
+/* ==================== 结果计数 ==================== */
+
 .vs-search-results {
   min-width: 50px;
   padding: 0 4px;
   text-align: center;
-  color: #cccccc;
+  color: var(--vs-text);
   font-size: 13px;
   user-select: none;
 }
 
 .vs-search-results.no-results {
-  color: #808080;
+  color: var(--vs-text-secondary);
 }
 
-/* 导航按钮组 */
+/* ==================== 导航按钮 ==================== */
+
 .vs-search-nav {
   display: flex;
   gap: 2px;
@@ -153,7 +211,7 @@
   background-color: transparent;
   border: 1px solid transparent;
   border-radius: 2px;
-  color: #cccccc;
+  color: var(--vs-text);
   font-size: 14px;
   font-family: inherit;
   cursor: pointer;
@@ -163,7 +221,7 @@
 
 .vs-search-nav-btn:hover,
 .vs-search-close:hover {
-  background-color: #4a4a4a;
+  background-color: var(--vs-btn-hover);
 }
 
 /* 关闭按钮 */
@@ -173,23 +231,24 @@
   margin-left: 4px;
 }
 
-/* 高亮样式 */
+/* ==================== 高亮样式 ==================== */
+
 .vs-search-highlight {
-  background-color: #ffd700 !important;
-  color: #000000 !important;
+  background-color: var(--vs-highlight-bg) !important;
+  color: var(--vs-highlight-text) !important;
   border-radius: 1px;
 }
 
 .vs-search-current {
-  background-color: #ff9632 !important;
+  background-color: var(--vs-current-bg) !important;
 }
 
 /* 确保高亮优先级最高 */
 mark.vs-search-highlight {
-  background-color: #ffd700 !important;
-  color: #000000 !important;
+  background-color: var(--vs-highlight-bg) !important;
+  color: var(--vs-highlight-text) !important;
 }
 
 mark.vs-search-current {
-  background-color: #ff9632 !important;
+  background-color: var(--vs-current-bg) !important;
 }
