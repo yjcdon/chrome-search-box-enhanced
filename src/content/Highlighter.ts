@@ -5,7 +5,7 @@ import { MAX_HIGHLIGHTS } from '../constants.js';
  * 负责将匹配范围渲染为可视高亮
  */
 export class Highlighter {
-  private highlights: HTMLElement[] = [];
+  private highlights: HTMLElement[][] = [];
   private currentIndex = 0;
   private totalMatches = 0; // 实际匹配总数（可能超过 MAX_HIGHLIGHTS）
   private preservedIndex = 0; // 记录当前索引，用于恢复位置
@@ -33,20 +33,20 @@ export class Highlighter {
     // 从后往前处理，避免 DOM 变化影响后续 range
     const sortedRanges = [...limitedRanges].sort((a, b) => this.compareRangesDescending(a, b));
 
-    sortedRanges.forEach((range, index) => {
+    sortedRanges.forEach((range) => {
       const mark = document.createElement('mark');
       mark.className = 'vs-search-highlight';
-      mark.dataset.index = String(limitedRanges.length - 1 - index); // 反向索引
       this.bindHighlightClick(mark);
 
       try {
         // 尝试直接包裹（range 在同一个文本节点内）
         range.surroundContents(mark);
-        this.highlights.push(mark);
+        this.highlights.push([mark]);
       } catch (e) {
-        // 处理跨元素边界的情况（会自动添加到 highlights）
-        // 注意：不使用传入的 mark，handleCrossBoundary 会创建自己的 marks
-        this.handleCrossBoundary(range);
+        const marks = this.handleCrossBoundary(range);
+        if (marks.length > 0) {
+          this.highlights.push(marks);
+        }
       }
     });
 
@@ -101,11 +101,13 @@ export class Highlighter {
     let nearestIndex = 0;
     let minDistance = Infinity;
 
-    this.highlights.forEach((el, index) => {
-      const rect = el.getBoundingClientRect();
-      const centerX = rect.left + rect.width / 2;
-      const centerY = rect.top + rect.height / 2;
-      const distance = Math.hypot(centerX - position.x, centerY - position.y);
+    this.highlights.forEach((group, index) => {
+      const distance = group.reduce((minDistance, el) => {
+        const rect = el.getBoundingClientRect();
+        const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
+        return Math.min(minDistance, Math.hypot(centerX - position.x, centerY - position.y));
+      }, Infinity);
 
       if (distance < minDistance) {
         minDistance = distance;
@@ -134,47 +136,78 @@ export class Highlighter {
   }
 
   /**
-   * 处理跨元素边界的匹配
-   * 使用 cloneContents + deleteContents + insertNode 方案
-   * 避免 extractContents 部分包含元素时留下空克隆
+   * 处理跨元素边界的匹配。
+   * 只包装命中的文本片段，避免克隆、删除或移动页面原有元素节点。
    */
-  private handleCrossBoundary(range: Range): void {
-    const mark = document.createElement('mark');
-    mark.className = 'vs-search-highlight';
-    this.bindHighlightClick(mark);
+  private handleCrossBoundary(range: Range): HTMLElement[] {
+    const textParts = this.getTextPartsInRange(range);
+    const marks: HTMLElement[] = [];
 
-    // 先克隆内容
-    const fragment = range.cloneContents();
-    mark.appendChild(fragment);
+    // 从后往前包裹，避免前面的文本节点拆分影响后续 Range。
+    for (let i = textParts.length - 1; i >= 0; i--) {
+      const part = textParts[i];
+      const mark = document.createElement('mark');
+      mark.className = 'vs-search-highlight';
+      this.bindHighlightClick(mark);
 
-    // 记录删除前的父元素
-    const parentElement = range.commonAncestorContainer.parentElement ||
-      (range.commonAncestorContainer.nodeType === Node.ELEMENT_NODE
-        ? range.commonAncestorContainer as Element
-        : null);
+      const partRange = document.createRange();
+      partRange.setStart(part.node, part.start);
+      partRange.setEnd(part.node, part.end);
 
-    // 删除原内容
-    range.deleteContents();
-
-    // 清理空元素：遍历父元素的所有后代，移除空的内联元素
-    if (parentElement) {
-      this.cleanupEmptyElements(parentElement);
+      try {
+        partRange.surroundContents(mark);
+        marks.unshift(mark);
+      } catch {
+        // 单个文本片段失败时跳过该片段，避免破坏宿主页面 DOM。
+      } finally {
+        partRange.detach();
+      }
     }
 
-    // 插入 mark
-    range.insertNode(mark);
-    this.highlights.push(mark);
+    return marks;
   }
 
   /**
-   * 清理空的内联元素（deleteContents 可能留下空克隆）
+   * 获取 Range 覆盖到的文本节点片段
    */
-  private cleanupEmptyElements(parent: Element): void {
-    // 查找所有可能被部分包含的元素类型
-    const emptySelectors = 'strong:empty, em:empty, span:empty, b:empty, i:empty, a:empty';
-    parent.querySelectorAll(emptySelectors).forEach((el) => {
-      el.remove();
-    });
+  private getTextPartsInRange(range: Range): Array<{ node: Text; start: number; end: number }> {
+    const root = range.commonAncestorContainer.nodeType === Node.TEXT_NODE
+      ? range.commonAncestorContainer.parentNode
+      : range.commonAncestorContainer;
+
+    if (!root) {
+      return [];
+    }
+
+    const parts: Array<{ node: Text; start: number; end: number }> = [];
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+
+    let textNode: Text | null;
+    while ((textNode = walker.nextNode() as Text | null)) {
+      if (!this.rangeIntersectsTextNode(range, textNode)) {
+        continue;
+      }
+
+      const start = textNode === range.startContainer ? range.startOffset : 0;
+      const end = textNode === range.endContainer ? range.endOffset : textNode.length;
+
+      if (start < end) {
+        parts.push({ node: textNode, start, end });
+      }
+    }
+
+    return parts;
+  }
+
+  /**
+   * 判断 Range 是否覆盖指定文本节点
+   */
+  private rangeIntersectsTextNode(range: Range, node: Text): boolean {
+    try {
+      return range.intersectsNode(node);
+    } catch {
+      return false;
+    }
   }
 
   /**
@@ -182,7 +215,17 @@ export class Highlighter {
    */
   private sortHighlightsByDocumentPosition(): void {
     this.highlights.sort((a, b) => {
-      const position = a.compareDocumentPosition(b);
+      const firstA = a[0];
+      const firstB = b[0];
+
+      if (!firstA || !firstB) {
+        return 0;
+      }
+
+      const position = firstA.compareDocumentPosition(firstB);
+      if (position & Node.DOCUMENT_POSITION_DISCONNECTED) {
+        return this.compareElementsByRect(firstA, firstB);
+      }
       if (position & Node.DOCUMENT_POSITION_FOLLOWING) {
         return -1;
       }
@@ -193,9 +236,25 @@ export class Highlighter {
     });
 
     // 更新索引
-    this.highlights.forEach((el, index) => {
-      el.dataset.index = String(index);
+    this.highlights.forEach((group, index) => {
+      group.forEach((el) => {
+        el.dataset.index = String(index);
+      });
     });
+  }
+
+  /**
+   * 不同 DOM root 的元素用视口位置兜底排序
+   */
+  private compareElementsByRect(a: HTMLElement, b: HTMLElement): number {
+    const rectA = a.getBoundingClientRect();
+    const rectB = b.getBoundingClientRect();
+
+    if (rectA.top !== rectB.top) {
+      return rectA.top - rectB.top;
+    }
+
+    return rectA.left - rectB.left;
   }
 
   /**
@@ -204,15 +263,19 @@ export class Highlighter {
    */
   setCurrent(index: number): void {
     // 移除旧当前项样式
-    this.highlights.forEach(h => {
-      h.classList.remove('vs-search-current');
+    this.highlights.forEach(group => {
+      group.forEach(h => {
+        h.classList.remove('vs-search-current');
+      });
     });
 
     // 设置新当前项
     this.currentIndex = index;
     const current = this.highlights[index];
     if (current) {
-      current.classList.add('vs-search-current');
+      current.forEach(h => {
+        h.classList.add('vs-search-current');
+      });
     }
   }
 
@@ -241,14 +304,14 @@ export class Highlighter {
    * 获取指定索引的高亮元素
    */
   getHighlight(index: number): HTMLElement | null {
-    return this.highlights[index] || null;
+    return this.highlights[index]?.[0] || null;
   }
 
   /**
    * 获取所有高亮元素
    */
   getAllHighlights(): HTMLElement[] {
-    return [...this.highlights];
+    return this.highlights.flat();
   }
 
   /**
@@ -257,18 +320,21 @@ export class Highlighter {
   clear(): void {
     // 从后往前移除，避免索引问题
     for (let i = this.highlights.length - 1; i >= 0; i--) {
-      const mark = this.highlights[i];
-      const parent = mark.parentNode;
+      const group = this.highlights[i];
+      for (let j = group.length - 1; j >= 0; j--) {
+        const mark = group[j];
+        const parent = mark.parentNode;
 
-      if (parent) {
-        // 将 mark 的子节点移回原位置（保留元素节点和属性）
-        while (mark.firstChild) {
-          parent.insertBefore(mark.firstChild, mark);
+        if (parent) {
+          // 将 mark 的子节点移回原位置（保留页面原有元素节点和属性）
+          while (mark.firstChild) {
+            parent.insertBefore(mark.firstChild, mark);
+          }
+          parent.removeChild(mark);
+
+          // 合并相邻文本节点
+          parent.normalize();
         }
-        parent.removeChild(mark);
-
-        // 合并相邻文本节点
-        parent.normalize();
       }
     }
 
@@ -281,7 +347,7 @@ export class Highlighter {
    * 滚动到当前高亮项
    */
   scrollToCurrent(): void {
-    const current = this.highlights[this.currentIndex];
+    const current = this.getHighlight(this.currentIndex);
     if (current) {
       current.scrollIntoView({
         behavior: 'instant',
