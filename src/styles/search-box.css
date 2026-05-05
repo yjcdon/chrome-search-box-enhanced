@@ -138,7 +138,11 @@
 }
 
 .vs-search-option-btn {
-  padding: 4px 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 24px;
+  padding: 0 6px;
   background-color: transparent;
   border: 1px solid transparent;
   border-radius: 2px;
@@ -147,7 +151,6 @@
   font-family: inherit;
   cursor: pointer;
   transition: all 0.2s;
-  line-height: 1;
 }
 
 .vs-search-option-btn:hover {
@@ -164,7 +167,7 @@
 .vs-search-option-btn.whole-word {
   border: 1px solid var(--vs-input-border);
   border-radius: 3px;
-  padding: 2px 5px;
+  padding: 0 5px;
   font-size: 11px;
   letter-spacing: 0;
 }
@@ -207,7 +210,12 @@
 
 .vs-search-nav-btn,
 .vs-search-close {
-  padding: 4px 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
   background-color: transparent;
   border: 1px solid transparent;
   border-radius: 2px;
@@ -216,7 +224,6 @@
   font-family: inherit;
   cursor: pointer;
   transition: all 0.2s;
-  line-height: 1;
 }
 
 .vs-search-nav-btn:hover,
@@ -226,9 +233,9 @@
 
 /* 关闭按钮 */
 .vs-search-close {
-  font-size: 18px;
-  padding: 2px 6px;
+  font-size: 16px;
   margin-left: 4px;
+  transform: translateY(-1px);
 }
 
 /* ==================== 高亮样式 ==================== */
