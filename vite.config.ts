@@ -1,10 +1,13 @@
+import { resolve } from 'node:path';
 import { defineConfig } from 'vite';
 
 export default defineConfig({
+  base: '',
   build: {
     rollupOptions: {
       input: {
-        content: 'src/content/index.ts'
+        content: resolve(__dirname, 'src/content/index.ts'),
+        popup: resolve(__dirname, 'src/popup/popup.html')
       },
       output: {
         entryFileNames: '[name].js',
@@ -16,6 +19,6 @@ export default defineConfig({
     minify: false
   },
   css: {
-    postcss: {} // 使用默认的 CSS 处理
+    postcss: {}
   }
 });

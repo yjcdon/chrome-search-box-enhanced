@@ -5,6 +5,7 @@ import { SearchEngine } from './SearchEngine.js';
 import { Highlighter } from './Highlighter.js';
 import { Navigator } from './Navigator.js';
 import type { SearchContext, SearchOptions } from '../types/index.js';
+import { getDisabledSites, isSiteDisabled } from '../storage.js';
 
 // 当前搜索状态
 let currentQuery = '';
@@ -13,12 +14,38 @@ let searchObserver: MutationObserver | null = null;
 let observerDebounceTimer: number | null = null;
 let isSearching = false; // 搜索过程中暂停 observer
 let isNavigating = false; // 导航过程中暂停 observer
+let isCurrentSiteDisabled = false; // 当前网站是否被禁用
 
 function clearObserverDebounceTimer(): void {
   if (observerDebounceTimer !== null) {
     window.clearTimeout(observerDebounceTimer);
     observerDebounceTimer = null;
   }
+}
+
+/**
+ * 刷新当前网站的禁用状态
+ */
+async function refreshDisabledState(searchBox?: SearchBox, highlighter?: Highlighter): Promise<void> {
+  const sites = await getDisabledSites();
+  isCurrentSiteDisabled = isSiteDisabled(window.location.hostname, sites);
+
+  if (isCurrentSiteDisabled && searchBox?.isOpen()) {
+    searchBox.close();
+    highlighter?.clear();
+  }
+}
+
+/**
+ * 监听禁用网站列表变化
+ */
+function watchDisabledSites(searchBox: SearchBox, highlighter: Highlighter): void {
+  chrome.storage.onChanged.addListener((changes, areaName) => {
+    if (areaName !== 'local' || !changes.disabledSites) {
+      return;
+    }
+    void refreshDisabledState(searchBox, highlighter);
+  });
 }
 
 function escapeRegExp(text: string): string {
@@ -98,6 +125,11 @@ function isFindShortcut(event: KeyboardEvent): boolean {
  */
 function installShortcutInterceptor(searchBox: SearchBox): void {
   document.addEventListener('keydown', (event) => {
+    // 当前网站被禁用时，不拦截快捷键
+    if (isCurrentSiteDisabled) {
+      return;
+    }
+
     if (isFindShortcut(event)) {
       event.preventDefault();
       event.stopImmediatePropagation();
@@ -285,6 +317,10 @@ function main(): void {
 
   // 设置动态内容监听
   setupDynamicContentObserver(searchBox, searchEngine, highlighter);
+
+  // 初始化禁用网站状态
+  void refreshDisabledState(searchBox, highlighter);
+  watchDisabledSites(searchBox, highlighter);
 
   // 配置搜索框回调
   searchBox.setOnSearch((query: string, options: SearchOptions, context?: SearchContext) => {

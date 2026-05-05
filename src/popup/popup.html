@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>禁用网站设置</title>
+  <link rel="stylesheet" href="./popup.css">
+</head>
+<body>
+  <div class="popup-container">
+    <header class="popup-header">
+      <h1>禁用网站设置</h1>
+    </header>
+
+    <section class="add-section">
+      <label for="siteInput">当前网站:</label>
+      <input type="text" id="siteInput" placeholder="输入域名">
+      <div class="button-group">
+        <button id="cancelBtn" class="btn btn-cancel">取消</button>
+        <button id="addBtn" class="btn btn-add">确认禁用</button>
+      </div>
+      <p id="errorMsg" class="error-msg"></p>
+    </section>
+
+    <section class="list-section">
+      <h2>已禁用网站 (<span id="siteCount">0</span>):</h2>
+      <ul id="disabledList" class="disabled-list">
+        <li class="empty-state">暂无禁用网站</li>
+      </ul>
+    </section>
+  </div>
+
+  <script type="module" src="./popup.ts"></script>
+</body>
+</html>
