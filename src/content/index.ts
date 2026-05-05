@@ -27,12 +27,17 @@ function clearObserverDebounceTimer(): void {
  * 刷新当前网站的禁用状态
  */
 async function refreshDisabledState(searchBox?: SearchBox, highlighter?: Highlighter): Promise<void> {
-  const sites = await getDisabledSites();
-  isCurrentSiteDisabled = isSiteDisabled(window.location.hostname, sites);
+  try {
+    const sites = await getDisabledSites();
+    isCurrentSiteDisabled = isSiteDisabled(window.location.hostname, sites);
 
-  if (isCurrentSiteDisabled && searchBox?.isOpen()) {
-    searchBox.close();
-    highlighter?.clear();
+    if (isCurrentSiteDisabled && searchBox?.isOpen()) {
+      searchBox.close();
+      highlighter?.clear();
+    }
+  } catch {
+    // 如果 storage API 不可用，默认不禁用
+    isCurrentSiteDisabled = false;
   }
 }
 
@@ -40,12 +45,16 @@ async function refreshDisabledState(searchBox?: SearchBox, highlighter?: Highlig
  * 监听禁用网站列表变化
  */
 function watchDisabledSites(searchBox: SearchBox, highlighter: Highlighter): void {
-  chrome.storage.onChanged.addListener((changes, areaName) => {
-    if (areaName !== 'local' || !changes.disabledSites) {
-      return;
-    }
-    void refreshDisabledState(searchBox, highlighter);
-  });
+  try {
+    chrome.storage.onChanged.addListener((changes, areaName) => {
+      if (areaName !== 'local' || !changes.disabledSites) {
+        return;
+      }
+      void refreshDisabledState(searchBox, highlighter);
+    });
+  } catch {
+    // storage API 不可用时忽略监听
+  }
 }
 
 function escapeRegExp(text: string): string {
