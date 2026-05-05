@@ -6,7 +6,7 @@ import {
   HIGHLIGHT_TEXT_COLOR,
   MAX_HIGHLIGHTS
 } from '../constants.js';
-import { compareElementsByViewportPosition } from './dom-position-utils.js';
+import { compareElementsByViewportPosition } from '../utils/dom-position.js';
 
 /**
  * 高亮管理器

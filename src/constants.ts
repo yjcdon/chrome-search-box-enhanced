@@ -15,6 +15,7 @@ export const isChinese = navigator.language.startsWith('zh');
 // ==================== 国际化文本 ====================
 
 export const i18n = {
+  // 搜索框
   placeholder: isChinese ? '查找' : 'Find',
   noResults: isChinese ? '无结果' : 'No results',
   totalLabel: isChinese ? '共' : 'total',
@@ -24,7 +25,19 @@ export const i18n = {
   regexTitle: isChinese ? '使用正则表达式' : 'Use Regex',
   prevTitle: isChinese ? '上一个' : 'Previous',
   nextTitle: isChinese ? '下一个' : 'Next',
-  closeTitle: isChinese ? '关闭' : 'Close'
+  closeTitle: isChinese ? '关闭' : 'Close',
+  // Popup
+  popupTitle: isChinese ? '添加插件禁用网站' : 'Add Disabled Site',
+  popupInputLabel: isChinese ? '网站域名:' : 'Site Domain:',
+  popupInputPlaceholder: isChinese ? '输入域名' : 'Enter domain',
+  popupAddBtn: isChinese ? '添加禁用' : 'Add',
+  popupCancelBtn: isChinese ? '取消' : 'Cancel',
+  popupAlreadyDisabled: isChinese ? '该网站已禁用' : 'Already disabled',
+  popupEmptyState: isChinese ? '暂无禁用网站' : 'No disabled sites',
+  popupListTitle: isChinese ? '已禁用网站' : 'Disabled Sites',
+  popupInvalidInput: isChinese ? '请输入有效的网站域名' : 'Please enter a valid domain',
+  popupAddFailed: isChinese ? '添加失败，请重试' : 'Failed to add, please retry',
+  popupDeleteAria: isChinese ? '删除' : 'Delete'
 };
 
 // ==================== 键盘符号 ====================

@@ -11,7 +11,7 @@ import {
   getOptionKeyHint,
   DEBOUNCE_DELAY
 } from '../constants.js';
-import { getSelectionPosition } from './selection-utils.js';
+import { getSelectionPosition } from '../utils/selection.js';
 
 /**
  * 搜索框组件
