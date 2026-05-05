@@ -1,91 +1,58 @@
 # Chrome Search Box Enhanced
 
-English | [中文](./README_CN.md)
+[English](./README_EN.md) | 中文
 
 ---
 
-An enhanced version of Chrome's native find feature: highlights all matches, shows real-time count, searches from cursor position, and more.
+Chrome 原生查找的增强版：支持高亮所有匹配、实时计数、从光标位置搜索等高级功能。
 
-### Features
+### 功能特性
 
-- 🔍 **Highlight All Matches** — Highlight all matches simultaneously for a global view
-- 🔢 **Real-time Count** — Shows current/total position, quick overview of match distribution
-- 📍 **Search from Cursor** — Automatically locate the nearest match to cursor position
-- 🖱️ **Click to Navigate** — Click any highlight to jump directly to that match
-- ⚙️ **Multiple Search Modes** — Case sensitive, whole word, regular expression support
-- 🌐 **Cross-node Matching** — Match text split by syntax highlighting (e.g., code blocks)
-- 🎯 **Shadow DOM Support** — Search within ShadowRoot content
-- 🌓 **Theme Adaptive** — Automatically adapts to browser dark/light mode
-- 🖱️ **Draggable Position** — Freely drag the search box, auto-remember position
-- ⌨️ **Keyboard Shortcuts** — Smooth and efficient keyboard operations
+- 🔍 **高亮所有匹配** — 同时高亮页面上所有匹配项，直观浏览全局结果
+- 🔢 **实时计数** — 显示当前第几个/总共几个，快速了解匹配分布
+- 📍 **从光标位置搜索** — 打开搜索框后自动定位到离光标最近的匹配项
+- 🖱️ **点击高亮导航** — 点击任意高亮项可直接跳转到该匹配位置
+- ⚙️ **多种搜索模式** — 支持区分大小写、全词匹配、正则表达式
+- 🌐 **跨节点/Shadow DOM 匹配** — 支持被语法高亮拆分的文本及 ShadowRoot 内容
 
-### Keyboard Shortcuts
+### 快捷键
 
-| Function | macOS | Windows |
-|----------|-------|---------|
-| Open search box | `⌘F` | `Ctrl+F` |
-| Next match | `Enter` | `Enter` |
-| Previous match | `⇧ Enter` | `Shift+Enter` |
-| Case sensitive | `⌥⌘C` | `Alt+C` |
-| Whole word | `⌥⌘W` | `Alt+W` |
-| Regular expression | `⌥⌘R` | `Alt+R` |
-| Close search box | `Esc` | `Esc` |
+| 功能 | macOS | Windows |
+|------|-------|---------|
+| 打开搜索框 | `⌘F` | `Ctrl+F` |
+| 下一个匹配 | `Enter` | `Enter` |
+| 上一个匹配 | `⇧ Enter` | `Shift+Enter` |
+| 区分大小写 | `⌥⌘C` | `Alt+C` |
+| 全词匹配 | `⌥⌘W` | `Alt+W` |
+| 正则表达式 | `⌥⌘R` | `Alt+R` |
+| 关闭搜索框 | `Esc` | `Esc` |
 
-### Installation
+### 安装
 
-#### Method 1: Download from Release (Recommended)
+#### 从 Release 下载（推荐）
 
-1. Download the packaged extension zip from [Release](https://github.com/yjcdon/chrome-search-box-enhanced/releases) page
-2. Open Chrome and enter `chrome://extensions/` in address bar
-3. Enable "Developer mode" (top right toggle)
-4. Drag the downloaded extension zip file into the `chrome://extensions/` page
+1. 从 [Release](https://github.com/yjcdon/chrome-search-box-enhanced/releases) 下载插件压缩包
+2. Chrome 地址栏输入 `chrome://extensions/`
+3. 打开「开发者模式」
+4. 将压缩包拖入页面即可
 
-#### Method 2: Load Unpacked Extension (Development Mode)
-
-1. Clone or download this project
-   ```bash
-   git clone https://github.com/yjcdon/chrome-search-box-enhanced.git
-   ```
-2. Install dependencies and build
-   ```bash
-   pnpm install
-   pnpm build
-   ```
-3. Open Chrome and go to extensions page
-   - Enter `chrome://extensions/` in address bar
-   - Or Menu → More tools → Extensions
-4. Enable "Developer mode" (top right toggle)
-5. Click "Load unpacked" and select the `dist` directory
-6. Installation complete, refresh pages to use
-
-#### Method 3: Load Source Directly (No Build)
-
-For quick testing, you can load the source directory directly:
-
-1. Download project source
-2. Chrome extensions page → Enable developer mode → Load unpacked
-3. Select project root directory (containing `manifest.json`)
-4. Note: This requires manual `content.js` and `content.css`, build method recommended
-
-### Development
+#### 从源码构建
 
 ```bash
-# Install dependencies
+git clone https://github.com/yjcdon/chrome-search-box-enhanced.git
 pnpm install
-
-# Development mode (watch file changes)
-pnpm dev
-
-# Build
 pnpm build
 ```
 
-Build output in `dist/` directory includes:
-- `manifest.json` — Extension config
-- `content.js` — Content script
-- `content.css` — Styles
-- `icons/` — Extension icons
+然后 Chrome 扩展页面 → 加载已解压的扩展程序 → 选择 `dist` 目录
 
-### License
+### 开发
+
+```bash
+pnpm dev    # 开发模式
+pnpm build  # 构建
+```
+
+### 许可证
 
 [MIT License](LICENSE)
