@@ -19,17 +19,32 @@ function parseHostname(input: string): string | null {
   }
 }
 
+/**
+ * 规范化存储值：
+ * - 正则/通配符：保持原样存储（显示友好）
+ * - 普通域名：解析为 hostname
+ */
 export function normalizeSiteInput(value: string): string | null {
   const trimmed = value.trim().toLowerCase();
   if (!trimmed) return null;
 
-  if (trimmed.includes('*')) {
-    return REGEX_SPECIAL_CHARS.test(trimmed) ? trimmed : wildcardToRegex(trimmed);
-  }
+  // 正则/通配符：保持原样
+  if (isRegexPattern(trimmed)) return trimmed;
 
-  if (REGEX_SPECIAL_CHARS.test(trimmed)) return trimmed;
-
+  // 普通域名：解析为 hostname
   return parseHostname(trimmed);
+}
+
+/**
+ * 将存储值转换为匹配模式：
+ * - 通配符：转换为正则（*.zsxq.com → .*\.zsxq\.com）
+ * - 正则/普通域名：保持不变
+ */
+function toMatchPattern(storedValue: string): string {
+  if (storedValue.includes('*') && !REGEX_SPECIAL_CHARS.test(storedValue)) {
+    return wildcardToRegex(storedValue);
+  }
+  return storedValue;
 }
 
 export async function getDisabledSites(): Promise<string[]> {
@@ -75,9 +90,10 @@ export function isSiteDisabled(hostname: string, disabledSites: string[]): boole
   // 精确匹配
   if (disabledSites.includes(normalized)) return true;
 
-  // 正则匹配（只对正则规则）
+  // 正则匹配（转换通配符后再匹配）
   return disabledSites
     .filter(isRegexPattern)
+    .map(toMatchPattern)
     .some(pattern => {
       try { return new RegExp(pattern, 'i').test(normalized); }
       catch { return false; }
