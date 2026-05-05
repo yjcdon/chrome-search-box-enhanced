@@ -1,21 +1,22 @@
+import { resolve } from 'node:path';
 import { defineConfig } from 'vite';
 
 export default defineConfig({
+  base: '',
   build: {
     rollupOptions: {
-      input: {
-        content: 'src/content/index.ts'
-      },
+      input: resolve(__dirname, 'src/popup/popup.html'),
       output: {
-        entryFileNames: '[name].js',
+        entryFileNames: 'popup.js',
         chunkFileNames: '[name].js',
         assetFileNames: '[name].[ext]'
       }
     },
     outDir: 'dist',
-    minify: false
+    minify: false,
+    emptyOutDir: false
   },
   css: {
-    postcss: {} // 使用默认的 CSS 处理
+    postcss: {}
   }
 });

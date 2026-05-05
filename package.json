@@ -1,13 +1,16 @@
 {
   "name": "chrome-search-box-enhanced",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Chrome 原生查找增强插件",
   "type": "module",
   "scripts": {
-    "build": "vite build && cp manifest.json dist/ && node scripts/generate-icons.mjs",
-    "dev": "vite build --watch"
+    "build": "vite build --config vite.config.content.ts && vite build --config vite.config.popup.ts && cp manifest.json dist/ && node scripts/generate-icons.mjs",
+    "dev": "node scripts/dev.mjs",
+    "dev:content": "vite build --config vite.config.content.ts --watch",
+    "dev:popup": "vite build --config vite.config.popup.ts --watch"
   },
   "devDependencies": {
+    "@types/chrome": "^0.1.40",
     "sharp": "^0.34.5",
     "typescript": "^5.4.0",
     "vite": "^5.2.0"

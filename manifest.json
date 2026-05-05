@@ -1,13 +1,25 @@
 {
   "manifest_version": 3,
   "name": "Chrome Search Box Enhanced",
-  "version": "1.0.2",
+  "version": "1.1.0",
   "description": "Chrome 原生查找增强插件",
   "icons": {
     "16": "icons/icon16.png",
     "48": "icons/icon48.png",
     "128": "icons/icon128.png"
   },
+  "action": {
+    "default_popup": "src/popup/popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "permissions": [
+    "storage",
+    "activeTab"
+  ],
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
@@ -15,6 +27,5 @@
       "css": ["content.css"],
       "run_at": "document_start"
     }
-  ],
-  "permissions": []
+  ]
 }

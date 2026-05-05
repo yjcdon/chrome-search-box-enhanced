@@ -5,6 +5,7 @@ import { SearchEngine } from './SearchEngine.js';
 import { Highlighter } from './Highlighter.js';
 import { Navigator } from './Navigator.js';
 import type { SearchContext, SearchOptions } from '../types/index.js';
+import { getDisabledSites, isSiteDisabled } from '../storage.js';
 
 // 当前搜索状态
 let currentQuery = '';
@@ -13,11 +14,48 @@ let searchObserver: MutationObserver | null = null;
 let observerDebounceTimer: number | null = null;
 let isSearching = false; // 搜索过程中暂停 observer
 let isNavigating = false; // 导航过程中暂停 observer
+let currentSiteDisabledState: 'unknown' | 'enabled' | 'disabled' = 'unknown';
 
 function clearObserverDebounceTimer(): void {
   if (observerDebounceTimer !== null) {
     window.clearTimeout(observerDebounceTimer);
     observerDebounceTimer = null;
+  }
+}
+
+/**
+ * 刷新当前网站的禁用状态
+ */
+async function refreshDisabledState(searchBox?: SearchBox, highlighter?: Highlighter): Promise<void> {
+  try {
+    const sites = await getDisabledSites();
+    currentSiteDisabledState = isSiteDisabled(window.location.hostname, sites)
+      ? 'disabled'
+      : 'enabled';
+
+    if (currentSiteDisabledState === 'disabled' && searchBox?.isOpen()) {
+      searchBox.close();
+      highlighter?.clear();
+    }
+  } catch {
+    // 如果 storage API 不可用，默认不禁用
+    currentSiteDisabledState = 'enabled';
+  }
+}
+
+/**
+ * 监听禁用网站列表变化
+ */
+function watchDisabledSites(searchBox: SearchBox, highlighter: Highlighter): void {
+  try {
+    chrome.storage.onChanged.addListener((changes, areaName) => {
+      if (areaName !== 'local' || !changes.disabledSites) {
+        return;
+      }
+      void refreshDisabledState(searchBox, highlighter);
+    });
+  } catch {
+    // storage API 不可用时忽略监听
   }
 }
 
@@ -98,7 +136,16 @@ function isFindShortcut(event: KeyboardEvent): boolean {
  */
 function installShortcutInterceptor(searchBox: SearchBox): void {
   document.addEventListener('keydown', (event) => {
+    // 当前网站被禁用时，不拦截快捷键
+    if (currentSiteDisabledState === 'disabled') {
+      return;
+    }
+
     if (isFindShortcut(event)) {
+      if (currentSiteDisabledState === 'unknown') {
+        return;
+      }
+
       event.preventDefault();
       event.stopImmediatePropagation();
       searchBox.open({ preserveSelection: true });
@@ -285,6 +332,10 @@ function main(): void {
 
   // 设置动态内容监听
   setupDynamicContentObserver(searchBox, searchEngine, highlighter);
+
+  // 初始化禁用网站状态
+  void refreshDisabledState(searchBox, highlighter);
+  watchDisabledSites(searchBox, highlighter);
 
   // 配置搜索框回调
   searchBox.setOnSearch((query: string, options: SearchOptions, context?: SearchContext) => {
