@@ -1,5 +1,6 @@
 import { SEARCH_UNIT_BOUNDARY_TAGS, SKIPPED_SEARCH_TAGS } from '../constants.js';
 import { isElementHidden, isInsideSearchBox } from './dom-utils.js';
+import { compareRangesByViewportPosition } from './dom-position-utils.js';
 import { buildSearchPattern, findMatches } from '../search-utils.js';
 import type { MatchRange, SearchOptions } from '../types/index.js';
 
@@ -229,22 +230,8 @@ export class SearchEngine {
       try {
         return a.compareBoundaryPoints(Range.START_TO_START, b);
       } catch {
-        return this.compareRangeRects(a, b);
+        return compareRangesByViewportPosition(a, b);
       }
     });
-  }
-
-  /**
-   * 不同 DOM root 的 Range 无法直接 compareBoundaryPoints，使用视口位置兜底
-   */
-  private compareRangeRects(a: Range, b: Range): number {
-    const rectA = a.getBoundingClientRect();
-    const rectB = b.getBoundingClientRect();
-
-    if (rectA.top !== rectB.top) {
-      return rectA.top - rectB.top;
-    }
-
-    return rectA.left - rectB.left;
   }
 }

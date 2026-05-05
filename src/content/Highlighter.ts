@@ -6,6 +6,7 @@ import {
   HIGHLIGHT_TEXT_COLOR,
   MAX_HIGHLIGHTS
 } from '../constants.js';
+import { compareElementsByViewportPosition } from './dom-position-utils.js';
 
 /**
  * 高亮管理器
@@ -253,7 +254,7 @@ export class Highlighter {
 
       const position = firstA.compareDocumentPosition(firstB);
       if (position & Node.DOCUMENT_POSITION_DISCONNECTED) {
-        return this.compareElementsByRect(firstA, firstB);
+        return compareElementsByViewportPosition(firstA, firstB);
       }
       if (position & Node.DOCUMENT_POSITION_FOLLOWING) {
         return -1;
@@ -270,20 +271,6 @@ export class Highlighter {
         el.dataset.index = String(index);
       });
     });
-  }
-
-  /**
-   * 不同 DOM root 的元素用视口位置兜底排序
-   */
-  private compareElementsByRect(a: HTMLElement, b: HTMLElement): number {
-    const rectA = a.getBoundingClientRect();
-    const rectB = b.getBoundingClientRect();
-
-    if (rectA.top !== rectB.top) {
-      return rectA.top - rectB.top;
-    }
-
-    return rectA.left - rectB.left;
   }
 
   /**
