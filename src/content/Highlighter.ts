@@ -1,3 +1,5 @@
+import { MAX_HIGHLIGHTS } from '../constants.js';
+
 /**
  * 高亮管理器
  * 负责将匹配范围渲染为可视高亮
@@ -6,7 +8,6 @@ export class Highlighter {
   private highlights: HTMLElement[] = [];
   private currentIndex = 0;
   private totalMatches = 0; // 实际匹配总数（可能超过 MAX_HIGHLIGHTS）
-  private readonly MAX_HIGHLIGHTS = 500; // 最大高亮数量，防止大页面卡顿
   private preservedIndex = 0; // 记录当前索引，用于恢复位置
   private onClickCallback: ((index: number) => void) | null = null;
 
@@ -27,7 +28,7 @@ export class Highlighter {
     this.totalMatches = ranges.length;
 
     // 限制高亮数量，防止大页面卡顿
-    const limitedRanges = ranges.slice(0, this.MAX_HIGHLIGHTS);
+    const limitedRanges = ranges.slice(0, MAX_HIGHLIGHTS);
 
     // 从后往前处理，避免 DOM 变化影响后续 range
     const sortedRanges = [...limitedRanges].sort((a, b) => {

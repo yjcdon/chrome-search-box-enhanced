@@ -32,8 +32,8 @@
     --vs-bg: #3c3c3c;
     --vs-border: #1e1e1e;
     --vs-shadow: rgba(0, 0, 0, 0.36);
-    --vs-text: #cccccc;
-    --vs-text-secondary: #808080;
+    --vs-text: #e0e0e0;
+    --vs-text-secondary: #a0a0a0;
     --vs-input-bg: #3c3c3c;
     --vs-input-border: #454545;
     --vs-input-focus-border: #007fd4;
@@ -41,9 +41,9 @@
     --vs-btn-active-bg: #094771;
     --vs-btn-active-border: #007fd4;
     --vs-btn-active-text: #ffffff;
-    --vs-handle-color: #808080;
+    --vs-handle-color: #909090;
     --vs-handle-hover-bg: #4a4a4a;
-    --vs-placeholder: #808080;
+    --vs-placeholder: #a0a0a0;
     --vs-highlight-bg: #ffd700;
     --vs-highlight-text: #000000;
     --vs-current-bg: #ff9632;

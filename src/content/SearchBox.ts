@@ -1,37 +1,14 @@
 import type { SearchContext, SearchOptions, SearchPosition, SearchResult } from '../types/index.js';
-
-/** 位置存储 key */
-const POSITION_STORAGE_KEY = 'vs-search-box-position';
-
-/** 默认位置 */
-const DEFAULT_POSITION = { right: 10, top: 10 };
-
-/** 检测是否为 macOS */
-const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
-
-/** 键盘符号映射 */
-const KEY_SYMBOLS = {
-  mac: {
-    alt: '⌥',
-    shift: '⇧',
-    enter: '↩︎',
-    esc: 'Esc'
-  },
-  windows: {
-    alt: 'Alt',
-    shift: 'Shift',
-    enter: 'Enter',
-    esc: 'Esc'
-  }
-};
-
-/** 获取键盘符号 */
-function getKeySymbol(key: 'alt' | 'shift' | 'enter' | 'esc'): string {
-  return isMac ? KEY_SYMBOLS.mac[key] : KEY_SYMBOLS.windows[key];
-}
+import {
+  POSITION_STORAGE_KEY,
+  DEFAULT_POSITION,
+  i18n,
+  getKeySymbol,
+  DEBOUNCE_DELAY
+} from '../constants.js';
 
 /**
- * VSCode 风格搜索框组件
+ * 搜索框组件
  */
 export class SearchBox {
   private container: HTMLElement | null = null;
@@ -41,7 +18,6 @@ export class SearchBox {
   private optionButtons: Map<string, HTMLButtonElement> = new Map();
   private isOpenState = false;
   private debounceTimer: number | null = null;
-  private readonly DEBOUNCE_DELAY = 150; // 防抖延迟 150ms
   private abortController: AbortController | null = null;
 
   // 拖动状态
@@ -83,14 +59,14 @@ export class SearchBox {
     // 拖动手柄
     this.dragHandle = document.createElement('div');
     this.dragHandle.className = 'vs-search-drag-handle';
-    this.dragHandle.title = '拖动移动位置';
+    this.dragHandle.title = i18n.dragTitle;
     this.dragHandle.innerHTML = '⋮⋮';
     this.container.appendChild(this.dragHandle);
 
     // 输入框
     this.input = document.createElement('input');
     this.input.type = 'text';
-    this.input.placeholder = '查找';
+    this.input.placeholder = i18n.placeholder;
     this.input.className = 'vs-search-input';
     this.container.appendChild(this.input);
 
@@ -99,9 +75,9 @@ export class SearchBox {
     optionsGroup.className = 'vs-search-options';
 
     const optionConfigs = [
-      { key: 'caseSensitive', title: `区分大小写 (${getKeySymbol('alt')}C)`, text: 'Cc', className: '' },
-      { key: 'wholeWord', title: `全词匹配 (${getKeySymbol('alt')}W)`, text: 'W', className: 'whole-word' },
-      { key: 'regex', title: `使用正则表达式 (${getKeySymbol('alt')}R)`, text: '.*', className: 'regex' }
+      { key: 'caseSensitive', title: `${i18n.caseSensitiveTitle} (${getKeySymbol('alt')}C)`, text: 'Cc', className: '' },
+      { key: 'wholeWord', title: `${i18n.wholeWordTitle} (${getKeySymbol('alt')}W)`, text: 'W', className: 'whole-word' },
+      { key: 'regex', title: `${i18n.regexTitle} (${getKeySymbol('alt')}R)`, text: '.*', className: 'regex' }
     ];
 
     optionConfigs.forEach(config => {
@@ -121,7 +97,7 @@ export class SearchBox {
     // 结果计数
     this.resultLabel = document.createElement('span');
     this.resultLabel.className = 'vs-search-results';
-    this.resultLabel.textContent = '无结果';
+    this.resultLabel.textContent = i18n.noResults;
     this.container.appendChild(this.resultLabel);
 
     // 导航按钮组
@@ -131,7 +107,7 @@ export class SearchBox {
     const prevBtn = document.createElement('button');
     prevBtn.type = 'button';
     prevBtn.className = 'vs-search-nav-btn prev';
-    prevBtn.title = `上一个 (${getKeySymbol('shift')}${getKeySymbol('enter')})`;
+    prevBtn.title = `${i18n.prevTitle} (${getKeySymbol('shift')}${getKeySymbol('enter')})`;
     prevBtn.innerHTML = '↑';
     prevBtn.addEventListener('click', () => this.navigate('prev'), { signal });
     navGroup.appendChild(prevBtn);
@@ -139,7 +115,7 @@ export class SearchBox {
     const nextBtn = document.createElement('button');
     nextBtn.type = 'button';
     nextBtn.className = 'vs-search-nav-btn next';
-    nextBtn.title = `下一个 (${getKeySymbol('enter')})`;
+    nextBtn.title = `${i18n.nextTitle} (${getKeySymbol('enter')})`;
     nextBtn.innerHTML = '↓';
     nextBtn.addEventListener('click', () => this.navigate('next'), { signal });
     navGroup.appendChild(nextBtn);
@@ -150,7 +126,7 @@ export class SearchBox {
     const closeBtn = document.createElement('button');
     closeBtn.type = 'button';
     closeBtn.className = 'vs-search-close';
-    closeBtn.title = `关闭 (${getKeySymbol('esc')})`;
+    closeBtn.title = `${i18n.closeTitle} (${getKeySymbol('esc')})`;
     closeBtn.innerHTML = '×';
     closeBtn.addEventListener('click', () => this.close(), { signal });
     this.container.appendChild(closeBtn);
@@ -306,7 +282,7 @@ export class SearchBox {
         this.onSearch(this.input.value, this.options, context);
       }
       this.debounceTimer = null;
-    }, this.DEBOUNCE_DELAY);
+    }, DEBOUNCE_DELAY);
   }
 
   /**
@@ -531,11 +507,11 @@ export class SearchBox {
     if (!this.resultLabel) return;
 
     if (result.total === 0) {
-      this.resultLabel.textContent = '无结果';
+      this.resultLabel.textContent = i18n.noResults;
       this.resultLabel.classList.add('no-results');
     } else if (result.totalMatches && result.totalMatches > result.total) {
       // 超过最大高亮限制时显示提示
-      this.resultLabel.textContent = `${result.currentIndex + 1}/${result.total}+ (共${result.totalMatches})`;
+      this.resultLabel.textContent = `${result.currentIndex + 1}/${result.total}+ (${i18n.totalLabel}${result.totalMatches})`;
       this.resultLabel.classList.remove('no-results');
     } else {
       this.resultLabel.textContent = `${result.currentIndex + 1}/${result.total}`;
