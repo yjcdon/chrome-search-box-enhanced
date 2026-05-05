@@ -14,6 +14,7 @@ An enhanced version of Chrome's native find feature: highlights all matches, sho
 - 🖱️ **Click to Navigate** — Click any highlight to jump directly to that match
 - ⚙️ **Multiple Search Modes** — Case sensitive, whole word, regular expression support
 - 🌐 **Cross-node/Shadow DOM Matching** — Match text split by syntax highlighting and ShadowRoot content
+- 🚫 **Disabled Sites** — Fall back to Chrome native find or site-provided find on selected sites
 
 ### Keyboard Shortcuts
 
@@ -26,6 +27,12 @@ An enhanced version of Chrome's native find feature: highlights all matches, sho
 | Whole word | `⌥⌘W` | `Alt+W` |
 | Regular expression | `⌥⌘R` | `Alt+R` |
 | Close search box | `Esc` | `Esc` |
+
+### Disabled Sites
+
+Click the extension icon to open disabled site settings. The popup fills in the current tab hostname by default, and you can also enter another hostname manually.
+
+On disabled sites, the extension does not intercept `⌘F` / `Ctrl+F`, so Chrome native find or the site's own find behavior continues to work. The disabled site list is stored locally with `chrome.storage.local`.
 
 ### Installation
 
@@ -49,8 +56,10 @@ Then Chrome extensions page → Load unpacked → Select `dist` directory
 ### Development
 
 ```bash
-pnpm dev    # Development mode
-pnpm build  # Build
+pnpm dev          # Watch content and popup builds
+pnpm dev:content  # Watch content script build only
+pnpm dev:popup    # Watch popup build only
+pnpm build        # Build
 ```
 
 ### License
