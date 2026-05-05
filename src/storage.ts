@@ -1,117 +1,85 @@
 const STORAGE_KEY = 'disabledSites';
 
-// 正则特殊字符（不含 * 和 .，它们有特殊处理）
 const REGEX_SPECIAL_CHARS = /[\^$+|()[\]\\{}]/;
 
-/**
- * 规范化输入：
- * - 包含 *：通配符语法，转换为正则（* 变 .*，. 变 \.）
- * - 包含其他正则特殊字符：直接作为正则规则
- * - 普通域名：解析为 hostname
- */
-export function normalizeSiteInput(value: string): string | null {
-  const trimmed = value.trim().toLowerCase();
-  if (!trimmed) {
-    return null;
-  }
+function isRegexPattern(value: string): boolean {
+  return value.includes('*') || REGEX_SPECIAL_CHARS.test(value);
+}
 
-  // 包含 *：通配符语法，转换为正则
-  if (trimmed.includes('*')) {
-    // 如果还包含其他复杂正则特殊字符，直接返回让用户自己处理
-    if (REGEX_SPECIAL_CHARS.test(trimmed)) {
-      return trimmed;
-    }
-    // 简单通配符：* -> .*，. -> \.
-    return trimmed.replace(/\./g, m => '\\' + m).replace(/\*/g, '.*');
-  }
+function wildcardToRegex(pattern: string): string {
+  return pattern.replace(/\./g, '\\.').replace(/\*/g, '.*');
+}
 
-  // 包含正则特殊字符：直接作为正则规则
-  if (REGEX_SPECIAL_CHARS.test(trimmed)) {
-    return trimmed;
-  }
-
-  // 普通域名：解析为 hostname
+function parseHostname(input: string): string | null {
   try {
-    const url = new URL(trimmed.includes('://') ? trimmed : `https://${trimmed}`);
-    if (url.protocol !== 'http:' && url.protocol !== 'https:') {
-      return null;
-    }
-    return url.hostname || null;
+    const url = new URL(input.includes('://') ? input : `https://${input}`);
+    return (url.protocol === 'http:' || url.protocol === 'https:') ? url.hostname : null;
   } catch {
     return null;
   }
 }
 
-export async function getDisabledSites(): Promise<string[]> {
-  const result = await chrome.storage.local.get(STORAGE_KEY);
-  const value = result[STORAGE_KEY];
-  if (!Array.isArray(value)) {
-    return [];
+export function normalizeSiteInput(value: string): string | null {
+  const trimmed = value.trim().toLowerCase();
+  if (!trimmed) return null;
+
+  if (trimmed.includes('*')) {
+    return REGEX_SPECIAL_CHARS.test(trimmed) ? trimmed : wildcardToRegex(trimmed);
   }
 
-  return Array.from(
-    new Set(
-      value
-        .filter((site): site is string => typeof site === 'string')
-        .map(normalizeSiteInput)
-        .filter((site): site is string => !!site)
-    )
-  );
+  if (REGEX_SPECIAL_CHARS.test(trimmed)) return trimmed;
+
+  return parseHostname(trimmed);
+}
+
+export async function getDisabledSites(): Promise<string[]> {
+  const { [STORAGE_KEY]: value } = await chrome.storage.local.get(STORAGE_KEY);
+  if (!Array.isArray(value)) return [];
+
+  return Array.from(new Set(
+    value.filter((s): s is string => typeof s === 'string')
+         .map(normalizeSiteInput)
+         .filter(Boolean) as string[]
+  ));
 }
 
 export async function setDisabledSites(sites: string[]): Promise<void> {
-  const normalizedSites = Array.from(
-    new Set(sites.map(normalizeSiteInput).filter((site): site is string => !!site))
-  );
-  await chrome.storage.local.set({ [STORAGE_KEY]: normalizedSites });
+  const normalized = Array.from(new Set(
+    sites.map(normalizeSiteInput).filter(Boolean) as string[]
+  ));
+  await chrome.storage.local.set({ [STORAGE_KEY]: normalized });
 }
 
 export async function addDisabledSite(site: string): Promise<void> {
-  const normalizedSite = normalizeSiteInput(site);
-  if (!normalizedSite) {
-    throw new Error('Invalid site');
-  }
+  const normalized = normalizeSiteInput(site);
+  if (!normalized) throw new Error('Invalid site');
 
   const sites = await getDisabledSites();
-  if (!sites.includes(normalizedSite)) {
-    await setDisabledSites([normalizedSite, ...sites]);
+  if (!sites.includes(normalized)) {
+    await setDisabledSites([normalized, ...sites]);
   }
 }
 
 export async function removeDisabledSite(site: string): Promise<void> {
-  const normalizedSite = normalizeSiteInput(site);
-  if (!normalizedSite) {
-    return;
-  }
+  const normalized = normalizeSiteInput(site);
+  if (!normalized) return;
 
   const sites = await getDisabledSites();
-  await setDisabledSites(sites.filter(item => item !== normalizedSite));
+  await setDisabledSites(sites.filter(s => s !== normalized));
 }
 
 export function isSiteDisabled(hostname: string, disabledSites: string[]): boolean {
-  const normalizedHostname = normalizeSiteInput(hostname);
-  if (!normalizedHostname) {
-    return false;
-  }
-
-  // disabledSites 已经是规范化后的数据，直接使用
-  const siteSet = new Set(disabledSites);
+  const normalized = normalizeSiteInput(hostname);
+  if (!normalized) return false;
 
   // 精确匹配
-  if (siteSet.has(normalizedHostname)) {
-    return true;
-  }
+  if (disabledSites.includes(normalized)) return true;
 
-  // 正则匹配
-  for (const site of siteSet) {
-    try {
-      if (new RegExp(site, 'i').test(normalizedHostname)) {
-        return true;
-      }
-    } catch {
-      // 无效正则，跳过
-    }
-  }
-
-  return false;
+  // 正则匹配（只对正则规则）
+  return disabledSites
+    .filter(isRegexPattern)
+    .some(pattern => {
+      try { return new RegExp(pattern, 'i').test(normalized); }
+      catch { return false; }
+    });
 }
