@@ -1,5 +1,5 @@
 {
-  "name": "vscode-search-extension",
+  "name": "chrome-search-box-enhanced",
   "version": "1.0.0",
   "description": "VSCode 风格搜索 Chrome 扩展",
   "type": "module",
