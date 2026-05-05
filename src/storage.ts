@@ -3,7 +3,7 @@ const STORAGE_KEY = 'disabledSites';
 const REGEX_SPECIAL_CHARS = /[\^$+|()[\]\\{}]/;
 
 function isRegexPattern(value: string): boolean {
-  return value.includes('*') || REGEX_SPECIAL_CHARS.test(value);
+  return value?.includes('*') || REGEX_SPECIAL_CHARS.test(value);
 }
 
 function wildcardToRegex(pattern: string): string {
