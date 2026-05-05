@@ -3,7 +3,9 @@ import {
   POSITION_STORAGE_KEY,
   DEFAULT_POSITION,
   i18n,
+  isMac,
   getKeySymbol,
+  getOptionKeyHint,
   DEBOUNCE_DELAY
 } from '../constants.js';
 
@@ -75,9 +77,9 @@ export class SearchBox {
     optionsGroup.className = 'vs-search-options';
 
     const optionConfigs = [
-      { key: 'caseSensitive', title: `${i18n.caseSensitiveTitle} (${getKeySymbol('alt')}C)`, text: 'Cc', className: '' },
-      { key: 'wholeWord', title: `${i18n.wholeWordTitle} (${getKeySymbol('alt')}W)`, text: 'W', className: 'whole-word' },
-      { key: 'regex', title: `${i18n.regexTitle} (${getKeySymbol('alt')}R)`, text: '.*', className: 'regex' }
+      { key: 'caseSensitive', title: `${i18n.caseSensitiveTitle} (${getOptionKeyHint('C')})`, text: 'Cc', className: '' },
+      { key: 'wholeWord', title: `${i18n.wholeWordTitle} (${getOptionKeyHint('W')})`, text: 'W', className: 'whole-word' },
+      { key: 'regex', title: `${i18n.regexTitle} (${getOptionKeyHint('R')})`, text: '.*', className: 'regex' }
     ];
 
     optionConfigs.forEach(config => {
@@ -304,13 +306,12 @@ export class SearchBox {
       return;
     }
 
-    // 选项快捷键
-    if (event.altKey) {
-      const key = event.key.toLowerCase();
+    // 选项快捷键 (Mac: Cmd+Option, Windows: Alt)
+    if ((isMac && event.metaKey && event.altKey) || (!isMac && event.altKey)) {
       const optionKey: keyof SearchOptions | null =
-        key === 'c' ? 'caseSensitive' :
-        key === 'w' ? 'wholeWord' :
-        key === 'r' ? 'regex' : null;
+        event.code === 'KeyC' ? 'caseSensitive' :
+        event.code === 'KeyW' ? 'wholeWord' :
+        event.code === 'KeyR' ? 'regex' : null;
 
       if (optionKey) {
         event.preventDefault();

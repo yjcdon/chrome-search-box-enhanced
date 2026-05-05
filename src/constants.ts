@@ -29,12 +29,14 @@ export const i18n = {
 
 export const KEY_SYMBOLS = {
   mac: {
+    cmd: '⌘',
     alt: '⌥',
     shift: '⇧',
     enter: '↩︎',
     esc: 'Esc'
   },
   windows: {
+    cmd: '',
     alt: 'Alt',
     shift: 'Shift',
     enter: 'Enter',
@@ -43,8 +45,13 @@ export const KEY_SYMBOLS = {
 };
 
 /** 获取键盘符号 */
-export function getKeySymbol(key: 'alt' | 'shift' | 'enter' | 'esc'): string {
+export function getKeySymbol(key: 'cmd' | 'alt' | 'shift' | 'enter' | 'esc'): string {
   return isMac ? KEY_SYMBOLS.mac[key] : KEY_SYMBOLS.windows[key];
+}
+
+/** 获取选项快捷键提示文字 */
+export function getOptionKeyHint(letter: string): string {
+  return isMac ? `${getKeySymbol('alt')}${getKeySymbol('cmd')}${letter}` : `${getKeySymbol('alt')}+${letter}`;
 }
 
 // ==================== 搜索框配置 ====================
