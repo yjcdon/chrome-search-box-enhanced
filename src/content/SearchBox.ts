@@ -174,22 +174,22 @@ export class SearchBox {
   }
 
   /**
-   * 从 localStorage 加载位置
+   * 从 sessionStorage 加载位置（关闭标签页后清除）
    */
   private loadPosition(): { left: number; top: number } | null {
     try {
-      const saved = localStorage.getItem(POSITION_STORAGE_KEY);
+      const saved = sessionStorage.getItem(POSITION_STORAGE_KEY);
       if (saved) {
         return JSON.parse(saved);
       }
     } catch {
-      // localStorage 不可用或数据损坏
+      // sessionStorage 不可用或数据损坏
     }
     return null;
   }
 
   /**
-   * 保存位置到 localStorage
+   * 保存位置到 sessionStorage（关闭标签页后清除）
    */
   private savePosition(): void {
     if (!this.container) return;
@@ -198,9 +198,9 @@ export class SearchBox {
     const top = parseInt(this.container.style.top || '0', 10);
 
     try {
-      localStorage.setItem(POSITION_STORAGE_KEY, JSON.stringify({ left, top }));
+      sessionStorage.setItem(POSITION_STORAGE_KEY, JSON.stringify({ left, top }));
     } catch {
-      // localStorage 不可用
+      // sessionStorage 不可用
     }
   }
 
