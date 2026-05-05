@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "build": "vite build --config vite.config.content.ts && vite build --config vite.config.popup.ts && cp manifest.json dist/ && node scripts/generate-icons.mjs",
-    "dev": "vite build --watch"
+    "dev": "node scripts/dev.mjs",
+    "dev:content": "vite build --config vite.config.content.ts --watch",
+    "dev:popup": "vite build --config vite.config.popup.ts --watch"
   },
   "devDependencies": {
     "@types/chrome": "^0.1.40",
