@@ -1,4 +1,4 @@
-import type { MatchRange, SearchOptions } from './types/index.js';
+import type { MatchRange, SearchOptions } from '../types/index.js';
 
 /**
  * 转义正则特殊字符，用于普通文本搜索。
