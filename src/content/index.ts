@@ -35,7 +35,7 @@ function clearObserverDebounceTimer(): void {
 }
 
 function hasCurrentQuery(): boolean {
-  return currentQuery.length > 0;
+  return currentQuery.trim().length > 0;
 }
 
 function pauseSearchObserver(): void {
@@ -333,7 +333,7 @@ function main(): void {
     currentQuery = query;
     currentOptions = options;
 
-    if (!query) {
+    if (!query.trim()) {
       clearObserverDebounceTimer();
       highlighter.clear();
       searchBox.updateResult({ total: 0, currentIndex: 0 });
