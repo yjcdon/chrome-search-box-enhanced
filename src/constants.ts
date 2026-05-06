@@ -139,7 +139,6 @@ export const SKIPPED_SEARCH_TAGS = ['SCRIPT', 'STYLE', 'TEXTAREA', 'INPUT', 'SEL
 
 /** 文本节点聚合时作为边界的元素标签 */
 export const SEARCH_UNIT_BOUNDARY_TAGS = [
-  'A',
   'ARTICLE',
   'ASIDE',
   'BLOCKQUOTE',
