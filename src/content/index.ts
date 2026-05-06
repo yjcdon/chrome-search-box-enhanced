@@ -1,4 +1,4 @@
-import '../styles/search-box.css';
+import '../styles/SearchBox.css';
 
 import { SearchBox } from './SearchBox.js';
 import { SearchEngine } from './SearchEngine.js';
@@ -13,10 +13,10 @@ import {
   SEARCH_OBSERVER_OPTIONS,
   SEARCH_OBSERVER_RESTORE_DELAY
 } from '../constants.js';
-import { containsSearchHighlight, isInsideSearchBox, isSearchHighlightElement } from '../utils/dom.js';
-import { textMatchesSearchQuery } from '../utils/search.js';
-import { isSiteDisabled } from '../utils/site.js';
-import { getDisabledSites } from '../utils/storage.js';
+import { containsSearchHighlight, isInsideSearchBox, isSearchHighlightElement } from '../utils/Dom.js';
+import { textMatchesSearchQuery } from '../utils/Search.js';
+import { isSiteDisabled } from '../utils/Site.js';
+import { getDisabledSites } from '../utils/Storage.js';
 
 // 当前搜索状态
 let currentQuery = '';

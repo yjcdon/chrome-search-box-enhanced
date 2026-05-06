@@ -5,7 +5,7 @@ export default defineConfig({
   base: '',
   build: {
     rollupOptions: {
-      input: resolve(__dirname, 'src/popup/popup.html'),
+      input: resolve(__dirname, 'src/popup/Popup.html'),
       output: {
         entryFileNames: 'popup.js',
         chunkFileNames: '[name].js',

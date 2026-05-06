@@ -1,7 +1,7 @@
 import { SEARCH_UNIT_BOUNDARY_TAGS, SKIPPED_SEARCH_TAGS } from '../constants.js';
-import { isElementHidden, isInsideSearchBox } from '../utils/dom.js';
+import { isElementHidden, isInsideSearchBox } from '../utils/Dom.js';
 import { compareRangesByViewportPosition } from '../utils/DomPosition.js';
-import { buildSearchPattern, findMatches } from '../utils/search.js';
+import { buildSearchPattern, findMatches } from '../utils/Search.js';
 import type { MatchRange, SearchOptions } from '../types/index.js';
 
 interface TextSegment {

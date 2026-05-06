@@ -1,6 +1,6 @@
 import { i18n } from '../constants.js';
-import { isSiteDisabled, normalizeSiteInput } from '../utils/site.js';
-import { addDisabledSite, getDisabledSites, removeDisabledSite } from '../utils/storage.js';
+import { isSiteDisabled, normalizeSiteInput } from '../utils/Site.js';
+import { addDisabledSite, getDisabledSites, removeDisabledSite } from '../utils/Storage.js';
 
 const input = document.getElementById('siteInput') as HTMLInputElement;
 const addBtn = document.getElementById('addBtn') as HTMLButtonElement;

@@ -29,13 +29,12 @@ export function textMatchesSearchQuery(
   query: string,
   options: SearchOptions
 ): boolean {
-  const trimmedQuery = query.trim();
-  if (!trimmedQuery || !text) {
+  if (!query || !text) {
     return false;
   }
 
   try {
-    return buildSearchPattern(trimmedQuery, options, { global: false }).test(text);
+    return buildSearchPattern(query, options, { global: false }).test(text);
   } catch {
     return false;
   }

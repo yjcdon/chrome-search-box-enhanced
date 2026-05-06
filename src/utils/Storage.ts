@@ -1,5 +1,5 @@
 import { DISABLED_SITES_STORAGE_KEY } from '../constants.js';
-import { normalizeSiteInput, normalizeSiteList } from './site.js';
+import { normalizeSiteInput, normalizeSiteList } from './Site.js';
 
 export async function getDisabledSites(): Promise<string[]> {
   const { [DISABLED_SITES_STORAGE_KEY]: value } = await chrome.storage.local.get(DISABLED_SITES_STORAGE_KEY);
