@@ -27,13 +27,13 @@ export class SearchEngine {
    * @returns 匹配范围数组
    */
   search(query: string, options: SearchOptions): Range[] {
-    if (!query.trim()) {
+    if (!query) {
       return [];
     }
 
     try {
-      // 1. 构建正则表达式（trim 搜索词，忽略前后空格）
-      const pattern = buildSearchPattern(query.trim(), options);
+      // 1. 构建正则表达式
+      const pattern = buildSearchPattern(query, options);
 
       // 2. 遍历页面所有文本节点，并按可连续搜索的区域聚合
       const ranges: Range[] = [];
