@@ -7,7 +7,6 @@ const addBtn = document.getElementById('addBtn') as HTMLButtonElement;
 const cancelBtn = document.getElementById('cancelBtn') as HTMLButtonElement;
 const errorMsg = document.getElementById('errorMsg') as HTMLParagraphElement;
 const disabledList = document.getElementById('disabledList') as HTMLUListElement;
-const siteCount = document.getElementById('siteCount') as HTMLSpanElement;
 const popupTitle = document.getElementById('popupTitle') as HTMLHeadingElement;
 const inputLabel = document.getElementById('inputLabel') as HTMLLabelElement;
 const listTitle = document.getElementById('listTitle') as HTMLHeadingElement;
@@ -25,7 +24,8 @@ function initUIText(): void {
   input.placeholder = i18n.popupInputPlaceholder;
   addBtn.textContent = i18n.popupAddBtn;
   cancelBtn.textContent = i18n.popupCancelBtn;
-  listTitle.textContent = `${i18n.popupListTitle} (`;
+  // 使用 innerHTML 构建 title + count 结构
+  listTitle.innerHTML = `${i18n.popupListTitle} (<span id="siteCount">0</span>)`;
 }
 
 /**
@@ -87,7 +87,10 @@ function renderDisabledSite(site: string): HTMLLIElement {
 
 async function loadDisabledSites(): Promise<void> {
   cachedDisabledSites = await getDisabledSites();
-  siteCount.textContent = String(cachedDisabledSites.length);
+  const siteCount = listTitle.querySelector('#siteCount');
+  if (siteCount) {
+    siteCount.textContent = String(cachedDisabledSites.length);
+  }
 
   // 根据输入框当前内容更新按钮状态
   updateAddButtonState();
